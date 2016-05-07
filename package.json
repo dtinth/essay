@@ -25,5 +25,13 @@
   "devDependencies": {
     "essay": "1.0.0",
     "standard": "^7.0.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dtinth/essay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dtinth/essay/issues"
+  },
+  "homepage": "https://github.com/dtinth/essay#readme"
 }
