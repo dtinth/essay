@@ -81,14 +81,16 @@ function registerCommandToRegistry (registry, command) {
 ```js
 // cli/buildCommand.js
 import obtainCodeBlocks from '../obtainCodeBlocks'
-import buildCodeBlocks from '../buildCodeBlocks'
+import dumpSourceCodeBlocks from '../dumpSourceCodeBlocks'
+import transpileCodeBlocks from '../transpileCodeBlocks'
 
 export const command = 'build'
 export const description = 'Builds the README.md file into lib folder.'
 export const builder = (yargs) => yargs
 export const handler = async (argv) => {
   const codeBlocks = await obtainCodeBlocks()
-  await buildCodeBlocks(codeBlocks)
+  await dumpSourceCodeBlocks(codeBlocks)
+  await transpileCodeBlocks(codeBlocks)
 }
 ```
 
@@ -135,21 +137,32 @@ export default extractCodeBlocks
 We’re going to build each file one by one.
 
 ```js
-// buildCodeBlocks.js
+// dumpSourceCodeBlocks.js
 import extractCodeBlockToSourceFile from './extractCodeBlockToSourceFile'
 import transpileFile from './transpileFile'
 
-export async function buildCodeBlocks (codeBlocks) {
+export async function dumpSourceCodeBlocks (codeBlocks) {
   const filenames = Object.keys(codeBlocks)
   for (const filename of filenames) {
     await extractCodeBlockToSourceFile(filename, codeBlocks[filename])
   }
+}
+
+export default dumpSourceCodeBlocks
+```
+
+```js
+// transpileCodeBlocks.js
+import transpileFile from './transpileFile'
+
+export async function transpileCodeBlocks (codeBlocks) {
+  const filenames = Object.keys(codeBlocks)
   for (const filename of filenames) {
     await transpileFile(filename)
   }
 }
 
-export default buildCodeBlocks
+export default transpileCodeBlocks
 ```
 
 Now, to write each code block to a file:
