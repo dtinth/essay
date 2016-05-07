@@ -100,6 +100,9 @@ export const handler = async (argv) => {
 }
 ```
 
+
+#### test command
+
 ```js
 // cli/testCommand.js
 import obtainCodeBlocks from '../obtainCodeBlocks'
@@ -120,6 +123,7 @@ export const handler = async (argv) => {
   await runUnitTests(codeBlocks)
 }
 ```
+
 
 ### obtaining code blocks
 
