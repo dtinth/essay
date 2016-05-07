@@ -1,0 +1,12 @@
+#!/bin/bash -e
+
+# This is pretty weird.
+# Cleanup.
+rm -rf lib lib-pre
+
+# Use an older version to build the current version
+./node_modules/.bin/essay
+mv lib lib-pre
+
+# Use the current version to build itself
+./essay-pre

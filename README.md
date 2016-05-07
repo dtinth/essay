@@ -1,6 +1,7 @@
 
 # essay
 
+Generate your JavaScript library out of an essay!
 Write your JavaScript library and explain your reasoning in a `README.md` file.
 
 For example, you could write your library like this:
@@ -21,7 +22,7 @@ it('should add two numbers', () => {
 ```
 
 
-## Usage
+## usage
 
 1. Create your README.md with fenced code blocks.
 
@@ -31,7 +32,7 @@ it('should add two numbers', () => {
 
 
 
-## Development
+## development
 
 You need to use `npm install --force`, because I use `essay` to write `essay`,
 but `npm` doesn’t want to install a package as a dependency of itself
@@ -39,9 +40,62 @@ but `npm` doesn’t want to install a package as a dependency of itself
 
 
 
-## How it works
+## implementation
 
-### Code block extraction…
+### CLI
+
+```js
+// cli/index.js
+import * as buildCommand from './buildCommand'
+
+export function main () {
+  // XXX: Work around yargs’ lack of default command support.
+  const commands = [ buildCommand ]
+  const yargs = commands.reduce(appendCommandToYargs, require('yargs')).help()
+  const registry = commands.reduce(registerCommandToRegistry, { })
+  const argv = yargs.argv
+  const command = argv._.shift() || 'build'
+  const commandObject = registry[command]
+  if (commandObject) {
+    const subcommand = commandObject.builder(yargs.reset())
+    commandObject.handler(argv)
+  } else {
+    yargs.showHelp()
+  }
+}
+
+function appendCommandToYargs (yargs, command) {
+  return yargs.command(command.command, command.description)
+}
+
+function registerCommandToRegistry (registry, command) {
+  return Object.assign(registry, {
+    [command.command]: command
+  })
+}
+```
+
+
+#### build command
+
+```js
+// cli/buildCommand.js
+import extractCodeBlocks from '../extractCodeBlocks'
+import buildCodeBlocks from '../buildCodeBlocks'
+import fs from 'fs'
+
+export const command = 'build'
+export const description = 'Builds the README.md file into lib folder.'
+export const builder = (yargs) => yargs
+export const handler = (argv) => {
+  const readme = fs.readFileSync('README.md', 'utf8')
+  const codeBlocks = extractCodeBlocks(readme)
+  buildCodeBlocks(codeBlocks)
+}
+```
+
+
+### code block extraction
 
 This function extracts all the code blocks:
 
@@ -61,65 +115,42 @@ export default extractCodeBlocks
 ```
 
 
-### CLI
-
-The CLI simply reads README.md and builds them into files:
-
-```js
-// cli.js
-import fs from 'fs'
-
-import extractCodeBlocks from './extractCodeBlocks'
-import buildCodeBlocks from './buildCodeBlocks'
-
-export function main () {
-  const readme = fs.readFileSync('README.md', 'utf8')
-  const codeBlocks = extractCodeBlocks(readme)
-  buildCodeBlocks(codeBlocks)
-}
-```
-
-
-### Builder
+### dumping code blocks to source files
 
 We’re going to build each file one by one.
 
 ```js
 // buildCodeBlocks.js
-import buildCodeBlock from './buildCodeBlock'
+import extractCodeBlockToSourceFile from './extractCodeBlockToSourceFile'
+import transpileFile from './transpileFile'
 
 export function buildCodeBlocks (codeBlocks) {
-  for (const filename of Object.keys(codeBlocks)) {
-    buildCodeBlock(filename, codeBlocks[filename])
+  const filenames = Object.keys(codeBlocks)
+  for (const filename of filenames) {
+    extractCodeBlockToSourceFile(filename, codeBlocks[filename])
+  }
+  for (const filename of filenames) {
+    transpileFile(filename)
   }
 }
 
 export default buildCodeBlocks
 ```
 
-
 Now, to write each code block to a file:
 
 ```js
-// buildCodeBlock.js
+// extractCodeBlockToSourceFile.js
 import path from 'path'
-import { transform } from 'babel-core'
 
 import saveToFile from './saveToFile'
 
-export function buildCodeBlock (filename, { contents }) {
-  const targetFilePath = path.join('lib', filename)
-  const { code } = transform(contents, {
-    filename: targetFilePath,
-    presets: [
-      require('babel-preset-es2015'),
-      require('babel-preset-stage-2')
-    ]
-  })
-  saveToFile(targetFilePath, code)
+export function extractCodeBlockToSourceFile (filename, { contents }) {
+  const targetFilePath = path.join('src', filename)
+  saveToFile(targetFilePath, contents)
 }
 
-export default buildCodeBlock
+export default extractCodeBlockToSourceFile
 ```
 
 ```js
@@ -135,4 +166,29 @@ export function saveToFile (filePath, contents) {
 }
 
 export default saveToFile
+```
+
+
+### transpilation using Babel
+
+```js
+// transpileFile.js
+import path from 'path'
+import { transformFileSync } from 'babel-core'
+
+import saveToFile from './saveToFile'
+
+export function transpileFile (filename) {
+  const sourceFilePath = path.join('src', filename)
+  const targetFilePath = path.join('lib', filename)
+  const { code } = transformFileSync(sourceFilePath, {
+    presets: [
+      require('babel-preset-es2015'),
+      require('babel-preset-stage-2')
+    ]
+  })
+  saveToFile(targetFilePath, code)
+}
+
+export default transpileFile
 ```
