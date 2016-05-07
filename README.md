@@ -179,12 +179,24 @@ export default transpileCodeBlocks
 import path from 'path'
 import { transformFileSync } from 'babel-core'
 
+import getBabelConfig from './getBabelConfig'
 import saveToFile from './saveToFile'
 
 export async function transpileCodeBlock (codeBlock, filename) {
   const sourceFilePath = path.join('src', filename)
   const targetFilePath = path.join('lib', filename)
-  const { code } = transformFileSync(sourceFilePath, {
+  const babelConfig = getBabelConfig()
+  const { code } = transformFileSync(sourceFilePath, babelConfig)
+  await saveToFile(targetFilePath, code)
+}
+
+export default transpileCodeBlock
+```
+
+```js
+// getBabelConfig.js
+export function getBabelConfig () {
+  return {
     presets: [
       require('babel-preset-es2015'),
       require('babel-preset-stage-2'),
@@ -192,11 +204,10 @@ export async function transpileCodeBlock (codeBlock, filename) {
     plugins: [
       require('babel-plugin-transform-runtime')
     ]
-  })
-  await saveToFile(targetFilePath, code)
+  }
 }
 
-export default transpileCodeBlock
+export default getBabelConfig
 ```
 
 
