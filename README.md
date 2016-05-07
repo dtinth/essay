@@ -138,31 +138,12 @@ We’re going to build each file one by one.
 
 ```js
 // dumpSourceCodeBlocks.js
+import forEachCodeBlock from './forEachCodeBlock'
 import extractCodeBlockToSourceFile from './extractCodeBlockToSourceFile'
-import transpileFile from './transpileFile'
 
-export async function dumpSourceCodeBlocks (codeBlocks) {
-  const filenames = Object.keys(codeBlocks)
-  for (const filename of filenames) {
-    await extractCodeBlockToSourceFile(filename, codeBlocks[filename])
-  }
-}
+export const dumpSourceCodeBlocks = forEachCodeBlock(extractCodeBlockToSourceFile)
 
 export default dumpSourceCodeBlocks
-```
-
-```js
-// transpileCodeBlocks.js
-import transpileFile from './transpileFile'
-
-export async function transpileCodeBlocks (codeBlocks) {
-  const filenames = Object.keys(codeBlocks)
-  for (const filename of filenames) {
-    await transpileFile(filename)
-  }
-}
-
-export default transpileCodeBlocks
 ```
 
 Now, to write each code block to a file:
@@ -173,7 +154,7 @@ import path from 'path'
 
 import saveToFile from './saveToFile'
 
-export async function extractCodeBlockToSourceFile (filename, { contents }) {
+export async function extractCodeBlockToSourceFile ({ contents }, filename) {
   const targetFilePath = path.join('src', filename)
   await saveToFile(targetFilePath, contents)
 }
@@ -184,13 +165,23 @@ export default extractCodeBlockToSourceFile
 ### transpilation using Babel
 
 ```js
-// transpileFile.js
+// transpileCodeBlocks.js
+import forEachCodeBlock from './forEachCodeBlock'
+import transpileCodeBlock from './transpileCodeBlock'
+
+export const transpileCodeBlocks = forEachCodeBlock(transpileCodeBlock)
+
+export default transpileCodeBlocks
+```
+
+```js
+// transpileCodeBlock.js
 import path from 'path'
 import { transformFileSync } from 'babel-core'
 
 import saveToFile from './saveToFile'
 
-export async function transpileFile (filename) {
+export async function transpileCodeBlock (codeBlock, filename) {
   const sourceFilePath = path.join('src', filename)
   const targetFilePath = path.join('lib', filename)
   const { code } = transformFileSync(sourceFilePath, {
@@ -205,7 +196,7 @@ export async function transpileFile (filename) {
   await saveToFile(targetFilePath, code)
 }
 
-export default transpileFile
+export default transpileCodeBlock
 ```
 
 
@@ -226,4 +217,20 @@ export async function saveToFile (filePath, contents) {
 }
 
 export default saveToFile
+```
+
+This function runs something for each code block:
+
+```js
+// forEachCodeBlock.js
+export function forEachCodeBlock (fn) {
+  return async function (codeBlocks) {
+    const filenames = Object.keys(codeBlocks)
+    for (const filename of filenames) {
+      await fn(codeBlocks[filename], filename, codeBlocks)
+    }
+  }
+}
+
+export default forEachCodeBlock
 ```
