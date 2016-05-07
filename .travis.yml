@@ -1,0 +1,7 @@
+language: node_js
+node_js:
+- '6'
+install:
+- npm install --force
+before_script:
+- npm run build
