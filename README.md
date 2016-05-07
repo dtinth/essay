@@ -80,18 +80,33 @@ function registerCommandToRegistry (registry, command) {
 
 ```js
 // cli/buildCommand.js
-import extractCodeBlocks from '../extractCodeBlocks'
+import obtainCodeBlocks from '../obtainCodeBlocks'
 import buildCodeBlocks from '../buildCodeBlocks'
-import fs from 'fs'
 
 export const command = 'build'
 export const description = 'Builds the README.md file into lib folder.'
 export const builder = (yargs) => yargs
-export const handler = (argv) => {
+export const handler = async (argv) => {
+  const codeBlocks = await obtainCodeBlocks()
+  await buildCodeBlocks(codeBlocks)
+}
+```
+
+
+### obtaining code blocks
+
+```js
+// obtainCodeBlocks.js
+import extractCodeBlocks from './extractCodeBlocks'
+import fs from 'fs'
+
+export async function obtainCodeBlocks () {
   const readme = fs.readFileSync('README.md', 'utf8')
   const codeBlocks = extractCodeBlocks(readme)
-  buildCodeBlocks(codeBlocks)
+  return codeBlocks
 }
+
+export default obtainCodeBlocks
 ```
 
 
@@ -124,13 +139,13 @@ We’re going to build each file one by one.
 import extractCodeBlockToSourceFile from './extractCodeBlockToSourceFile'
 import transpileFile from './transpileFile'
 
-export function buildCodeBlocks (codeBlocks) {
+export async function buildCodeBlocks (codeBlocks) {
   const filenames = Object.keys(codeBlocks)
   for (const filename of filenames) {
-    extractCodeBlockToSourceFile(filename, codeBlocks[filename])
+    await extractCodeBlockToSourceFile(filename, codeBlocks[filename])
   }
   for (const filename of filenames) {
-    transpileFile(filename)
+    await transpileFile(filename)
   }
 }
 
@@ -145,9 +160,9 @@ import path from 'path'
 
 import saveToFile from './saveToFile'
 
-export function extractCodeBlockToSourceFile (filename, { contents }) {
+export async function extractCodeBlockToSourceFile (filename, { contents }) {
   const targetFilePath = path.join('src', filename)
-  saveToFile(targetFilePath, contents)
+  await saveToFile(targetFilePath, contents)
 }
 
 export default extractCodeBlockToSourceFile
@@ -162,16 +177,19 @@ import { transformFileSync } from 'babel-core'
 
 import saveToFile from './saveToFile'
 
-export function transpileFile (filename) {
+export async function transpileFile (filename) {
   const sourceFilePath = path.join('src', filename)
   const targetFilePath = path.join('lib', filename)
   const { code } = transformFileSync(sourceFilePath, {
     presets: [
       require('babel-preset-es2015'),
-      require('babel-preset-stage-2')
+      require('babel-preset-stage-2'),
+    ],
+    plugins: [
+      require('babel-plugin-transform-runtime')
     ]
   })
-  saveToFile(targetFilePath, code)
+  await saveToFile(targetFilePath, code)
 }
 
 export default transpileFile
@@ -188,7 +206,7 @@ import fs from 'fs'
 import path from 'path'
 import mkdirp from 'mkdirp'
 
-export function saveToFile (filePath, contents) {
+export async function saveToFile (filePath, contents) {
   mkdirp.sync(path.dirname(filePath))
   console.log('Writing %s…', filePath)
   fs.writeFileSync(filePath, contents)
