@@ -153,22 +153,6 @@ export function extractCodeBlockToSourceFile (filename, { contents }) {
 export default extractCodeBlockToSourceFile
 ```
 
-```js
-// saveToFile.js
-import fs from 'fs'
-import path from 'path'
-import mkdirp from 'mkdirp'
-
-export function saveToFile (filePath, contents) {
-  mkdirp.sync(path.dirname(filePath))
-  console.log('Writing %s…', filePath)
-  fs.writeFileSync(filePath, contents)
-}
-
-export default saveToFile
-```
-
-
 ### transpilation using Babel
 
 ```js
@@ -191,4 +175,24 @@ export function transpileFile (filename) {
 }
 
 export default transpileFile
+```
+
+
+### utilities
+
+This function saves files to the file system. Just a utility functions.
+
+```js
+// saveToFile.js
+import fs from 'fs'
+import path from 'path'
+import mkdirp from 'mkdirp'
+
+export function saveToFile (filePath, contents) {
+  mkdirp.sync(path.dirname(filePath))
+  console.log('Writing %s…', filePath)
+  fs.writeFileSync(filePath, contents)
+}
+
+export default saveToFile
 ```
