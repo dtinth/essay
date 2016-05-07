@@ -15,9 +15,9 @@ And write a test for it:
 
 ```js
 // examples/add.test.js
-import add from 'example'
+import add from './add'
 it('should add two numbers', () => {
-  assert.equal(add(1, 2) === 3)
+  assert(add(1, 2) === 3)
 })
 ```
 
@@ -47,10 +47,11 @@ but `npm` doesn’t want to install a package as a dependency of itself
 ```js
 // cli/index.js
 import * as buildCommand from './buildCommand'
+import * as testCommand from './testCommand'
 
 export function main () {
   // XXX: Work around yargs’ lack of default command support.
-  const commands = [ buildCommand ]
+  const commands = [ buildCommand, testCommand ]
   const yargs = commands.reduce(appendCommandToYargs, require('yargs')).help()
   const registry = commands.reduce(registerCommandToRegistry, { })
   const argv = yargs.argv
@@ -58,7 +59,9 @@ export function main () {
   const commandObject = registry[command]
   if (commandObject) {
     const subcommand = commandObject.builder(yargs.reset())
-    commandObject.handler(argv)
+    Promise.resolve(commandObject.handler(argv)).catch(e => {
+      setTimeout(() => { throw e })
+    })
   } else {
     yargs.showHelp()
   }
@@ -83,17 +86,40 @@ function registerCommandToRegistry (registry, command) {
 import obtainCodeBlocks from '../obtainCodeBlocks'
 import dumpSourceCodeBlocks from '../dumpSourceCodeBlocks'
 import transpileCodeBlocks from '../transpileCodeBlocks'
+import getBabelConfig from '../getBabelConfig'
 
 export const command = 'build'
 export const description = 'Builds the README.md file into lib folder.'
 export const builder = (yargs) => yargs
 export const handler = async (argv) => {
+  const babelConfig = getBabelConfig()
+  const targetDirectory = 'lib'
   const codeBlocks = await obtainCodeBlocks()
   await dumpSourceCodeBlocks(codeBlocks)
-  await transpileCodeBlocks(codeBlocks)
+  await transpileCodeBlocks({ targetDirectory, babelConfig })(codeBlocks)
 }
 ```
 
+```js
+// cli/testCommand.js
+import obtainCodeBlocks from '../obtainCodeBlocks'
+import dumpSourceCodeBlocks from '../dumpSourceCodeBlocks'
+import transpileCodeBlocks from '../transpileCodeBlocks'
+import getTestingBabelConfig from '../getTestingBabelConfig'
+import runUnitTests from '../runUnitTests'
+
+export const command = 'test'
+export const description = 'Runs the test.'
+export const builder = (yargs) => yargs
+export const handler = async (argv) => {
+  const babelConfig = getTestingBabelConfig()
+  const targetDirectory = 'lib-cov'
+  const codeBlocks = await obtainCodeBlocks()
+  await dumpSourceCodeBlocks(codeBlocks)
+  await transpileCodeBlocks({ targetDirectory, babelConfig })(codeBlocks)
+  await runUnitTests(codeBlocks)
+}
+```
 
 ### obtaining code blocks
 
@@ -169,7 +195,9 @@ export default extractCodeBlockToSourceFile
 import forEachCodeBlock from './forEachCodeBlock'
 import transpileCodeBlock from './transpileCodeBlock'
 
-export const transpileCodeBlocks = forEachCodeBlock(transpileCodeBlock)
+export function transpileCodeBlocks (options) {
+  return forEachCodeBlock(transpileCodeBlock(options))
+}
 
 export default transpileCodeBlocks
 ```
@@ -177,17 +205,26 @@ export default transpileCodeBlocks
 ```js
 // transpileCodeBlock.js
 import path from 'path'
+import fs from 'fs'
 import { transformFileSync } from 'babel-core'
 
-import getBabelConfig from './getBabelConfig'
 import saveToFile from './saveToFile'
 
-export async function transpileCodeBlock (codeBlock, filename) {
-  const sourceFilePath = path.join('src', filename)
-  const targetFilePath = path.join('lib', filename)
-  const babelConfig = getBabelConfig()
-  const { code } = transformFileSync(sourceFilePath, babelConfig)
-  await saveToFile(targetFilePath, code)
+export function transpileCodeBlock ({ babelConfig, targetDirectory } = { }) {
+  return async function (codeBlock, filename) {
+    const sourceFilePath = path.join('src', filename)
+    const targetFilePath = path.join(targetDirectory, filename)
+    if (fs.existsSync(targetFilePath)) {
+      const sourceStats = fs.statSync(sourceFilePath)
+      const targetStats = fs.statSync(targetFilePath)
+      if (targetStats.mtime > sourceStats.mtime) {
+        // Already transpiled!
+        return
+      }
+    }
+    const { code } = transformFileSync(sourceFilePath, babelConfig)
+    await saveToFile(targetFilePath, code)
+  }
 }
 
 export default transpileCodeBlock
@@ -210,6 +247,70 @@ export function getBabelConfig () {
 export default getBabelConfig
 ```
 
+```js
+// getTestingBabelConfig.js
+import getBabelConfig from './getBabelConfig'
+
+export function getTestingBabelConfig () {
+  const babelConfig = getBabelConfig()
+  return {
+    ...babelConfig,
+    plugins: [
+      require('babel-plugin-__coverage__'),
+      require('babel-plugin-espower'),
+      ...babelConfig.plugins
+    ]
+  }
+}
+
+export default getTestingBabelConfig
+```
+
+
+### running unit tests
+
+```js
+// runUnitTests.js
+import fs from 'fs'
+
+export async function runUnitTests (codeBlocks) {
+  const Mocha = require('mocha')
+  const mocha = new Mocha({ ui: 'bdd' })
+  const testEntryFilename = './lib-cov/_test-entry.js'
+  const entry = generateEntryFile(codeBlocks)
+  fs.writeFileSync(testEntryFilename, entry)
+  mocha.addFile(testEntryFilename)
+  prepareTestEnvironment()
+  await new Promise((resolve, reject) => {
+    mocha.run(function (failures) {
+      if (failures) {
+        reject(new Error('There are ' + failures + ' test failure(s).'))
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
+function generateEntryFile (codeBlocks) {
+  const entry = [ '"use strict";' ]
+  for (const filename of Object.keys(codeBlocks)) {
+    if (filename.match(/\.test\.js$/)) {
+      entry.push('describe(' + JSON.stringify(filename) + ', function () {')
+      entry.push('  require(' + JSON.stringify('./' + filename) + ')')
+      entry.push('})')
+    }
+  }
+  return entry.join('\n')
+}
+
+function prepareTestEnvironment () {
+  global.assert = require('power-assert')
+}
+
+export default runUnitTests
+```
+
 
 ### utilities
 
@@ -223,7 +324,12 @@ import mkdirp from 'mkdirp'
 
 export async function saveToFile (filePath, contents) {
   mkdirp.sync(path.dirname(filePath))
-  console.log('Writing %s…', filePath)
+  const exists = fs.existsSync(filePath)
+  if (exists) {
+    const existingData = fs.readFileSync(filePath, 'utf8')
+    if (existingData === contents) return
+  }
+  console.log('%s %s…', exists ? 'Updating' : 'Writing', filePath)
   fs.writeFileSync(filePath, contents)
 }
 
