@@ -218,17 +218,17 @@ export function transpileCodeBlock ({ babelConfig, targetDirectory } = { }) {
   return async function (codeBlock, filename) {
     const sourceFilePath = path.join('src', filename)
     const targetFilePath = path.join(targetDirectory, filename)
-    if (fs.existsSync(targetFilePath)) {
-      const sourceStats = fs.statSync(sourceFilePath)
-      const targetStats = fs.statSync(targetFilePath)
-      if (targetStats.mtime > sourceStats.mtime) {
-        // Already transpiled!
-        return
-      }
-    }
+    if (await isAlreadyUpToDate(sourceFilePath, targetFilePath)) return
     const { code } = transformFileSync(sourceFilePath, babelConfig)
     await saveToFile(targetFilePath, code)
   }
+}
+
+async function isAlreadyUpToDate (sourceFilePath, targetFilePath) {
+  if (!fs.existsSync(targetFilePath)) return false
+  const sourceStats = fs.statSync(sourceFilePath)
+  const targetStats = fs.statSync(targetFilePath)
+  return targetStats.mtime > sourceStats.mtime
 }
 
 export default transpileCodeBlock
@@ -275,14 +275,14 @@ export default getTestingBabelConfig
 
 ```js
 // runUnitTests.js
-import fs from 'fs'
+import saveToFile from './saveToFile'
 
 export async function runUnitTests (codeBlocks) {
   const Mocha = require('mocha')
   const mocha = new Mocha({ ui: 'bdd' })
   const testEntryFilename = './lib-cov/_test-entry.js'
   const entry = generateEntryFile(codeBlocks)
-  fs.writeFileSync(testEntryFilename, entry)
+  await saveToFile(testEntryFilename, entry)
   mocha.addFile(testEntryFilename)
   prepareTestEnvironment()
   await new Promise((resolve, reject) => {
