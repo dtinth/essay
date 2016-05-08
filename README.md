@@ -16,6 +16,8 @@ And write a test for it:
 ```js
 // examples/add.test.js
 import add from './add'
+
+// describe block called automatically for us!
 it('should add two numbers', () => {
   assert(add(1, 2) === 3)
 })
@@ -150,15 +152,64 @@ This function extracts all the code blocks:
 // extractCodeBlocks.js
 export function extractCodeBlocks (data) {
   const codeBlocks = { }
-  data.replace(/`[`]`js\s+\/\/\s*(\S+).*\n([\s\S]+?)`[`]`/g, (all, filename, contents) => {
+  const regexp = /(`[`]`js\s+\/\/\s*(\S+).*\n)([\s\S]+?)`[`]`/g
+  data.replace(regexp, (all, before, filename, contents, index) => {
     if (codeBlocks[filename]) throw new Error(filename + ' already exists!')
-    codeBlocks[filename] = { contents }
-    // TODO: add line number
+
+    // XXX: Not the most efficient way to find the line number.
+    const line = data.substr(0, index + before.length).split('\n').length
+
+    codeBlocks[filename] = { contents, line }
   })
   return codeBlocks
 }
 
 export default extractCodeBlocks
+```
+
+Let’s test it!
+
+```js
+// extractCodeBlocks.test.js
+import extractCodeBlocks from './extractCodeBlocks'
+
+const END = '`' + '`' + '`'
+const BEGIN = END + 'js'
+
+const example = [
+  'Hello world!',
+  '============',
+  '',
+  BEGIN,
+  '// file1.js',
+  'console.log("hello,")',
+  END,
+  '',
+  '- It should work in lists too!',
+  '',
+  '  ' + BEGIN,
+  '  // file2.js',
+  '  console.log("world!")',
+  '  ' + END,
+  '',
+  'That’s it!'
+].join('\n')
+
+const blocks = extractCodeBlocks(example)
+
+it('should extract code blocks into object', () => {
+  assert.deepEqual(Object.keys(blocks).sort(), [ 'file1.js', 'file2.js' ])
+})
+
+it('should contain the code block’s contents', () => {
+  assert(blocks['file1.js'].contents.trim() === 'console.log("hello,")')
+  assert(blocks['file2.js'].contents.trim() === 'console.log("world!")')
+})
+
+it('should contain line numbers', () => {
+  assert(blocks['file1.js'].line === 6)
+  assert(blocks['file2.js'].line === 13)
+})
 ```
 
 
@@ -275,7 +326,9 @@ export default getTestingBabelConfig
 
 ```js
 // runUnitTests.js
+import fs from 'fs'
 import saveToFile from './saveToFile'
+import mapSourceCoverage from './mapSourceCoverage'
 
 export async function runUnitTests (codeBlocks) {
   const Mocha = require('mocha')
@@ -285,7 +338,12 @@ export async function runUnitTests (codeBlocks) {
   await saveToFile(testEntryFilename, entry)
   mocha.addFile(testEntryFilename)
   prepareTestEnvironment()
-  await new Promise((resolve, reject) => {
+  await runMocha(mocha)
+  await saveCoverageData(codeBlocks)
+}
+
+function runMocha (mocha) {
+  return new Promise((resolve, reject) => {
     mocha.run(function (failures) {
       if (failures) {
         reject(new Error('There are ' + failures + ' test failure(s).'))
@@ -312,7 +370,206 @@ function prepareTestEnvironment () {
   global.assert = require('power-assert')
 }
 
+async function saveCoverageData (codeBlocks) {
+  const coverage = global['__coverage__']
+  if (!coverage) return
+  const istanbul = require('istanbul')
+  const reporter = new istanbul.Reporter()
+  const collector = new istanbul.Collector()
+  const synchronously = true
+  collector.add(mapSourceCoverage(coverage, {
+    codeBlocks,
+    sourceFilePath: fs.realpathSync('README.md'),
+    targetDirectory: fs.realpathSync('src')
+  }))
+  reporter.add('lcov')
+  reporter.add('text')
+  reporter.write(collector, synchronously, () => { })
+}
+
 export default runUnitTests
+```
+
+#### the coverage magic
+
+This module rewrites coverage data to be in README.md!
+
+```js
+// mapSourceCoverage.js
+import path from 'path'
+import { forOwn } from 'lodash'
+
+export function mapSourceCoverage (coverage, {
+  codeBlocks,
+  sourceFilePath,
+  targetDirectory
+}) {
+  const result = { }
+  const builder = createReadmeDataBuilder(sourceFilePath)
+  for (const key of Object.keys(coverage)) {
+    const entry = coverage[key]
+    const relative = path.relative(targetDirectory, entry.path)
+    if (codeBlocks[relative]) {
+      builder.add(entry, codeBlocks[relative])
+    } else {
+      result[key] = entry
+    }
+  }
+  if (!builder.isEmpty()) result[sourceFilePath] = builder.getOutput()
+  return result
+}
+
+function createReadmeDataBuilder (path) {
+  let nextId = 1
+  let output = {
+    path,
+    s: { }, b: { }, f: { },
+    statementMap: { }, branchMap: { }, fnMap: { }
+  }
+  let empty = true
+  return {
+    add (entry, codeBlock) {
+      const id = nextId++
+      const prefix = (key) => `${id}.${key}`
+      const mapLine = (line) => codeBlock.line - 1 + line
+      const map = mapLocation(mapLine)
+      empty = false
+      forOwn(entry.s, (count, key) => {
+        output.s[prefix(key)] = count
+      })
+      forOwn(entry.statementMap, (loc, key) => {
+        output.statementMap[prefix(key)] = map(loc)
+      })
+      forOwn(entry.b, (count, key) => {
+        output.b[prefix(key)] = count
+      })
+      forOwn(entry.branchMap, (branch, key) => {
+        output.branchMap[prefix(key)] = {
+          ...branch,
+          line: mapLine(branch.line),
+          locations: branch.locations.map(map)
+        }
+      })
+      forOwn(entry.f, (count, key) => {
+        output.f[prefix(key)] = count
+      })
+      forOwn(entry.fnMap, (fn, key) => {
+        output.fnMap[prefix(key)] = {
+          ...fn,
+          line: mapLine(fn.line),
+          loc: map(fn.loc)
+        }
+      })
+    },
+    isEmpty: () => empty,
+    getOutput: () => output
+  }
+}
+
+function mapLocation (mapLine) {
+  return ({ start = { }, end = { } }) => ({
+    start: { line: mapLine(start.line), column: start.column },
+    end: { line: mapLine(end.line), column: end.column }
+  })
+}
+
+export default mapSourceCoverage
+```
+
+```js
+// mapSourceCoverage.test.js
+import mapSourceCoverage from './mapSourceCoverage'
+import path from 'path'
+
+const loc = (startLine, startColumn) => (endLine, endColumn) => ({
+  start: { line: startLine, column: startColumn },
+  end: { line: endLine, column: endColumn }
+})
+const coverage = {
+  '/home/user/essay/src/hello.js': {
+    path: '/home/user/essay/src/hello.js',
+    s: { 1: 1 },
+    b: { 1: [ 1, 2, 3 ] },
+    f: { 1: 99, 2: 30 },
+    statementMap: {
+      1: loc(2, 15)(2, 30)
+    },
+    branchMap: {
+      1: { line: 4, type: 'switch', locations: [
+        loc(5, 10)(5, 20),
+        loc(7, 10)(7, 25),
+        loc(9, 10)(9, 30)
+      ] }
+    },
+    fnMap: {
+      1: { name: 'x', line: 10, loc: loc(10, 0)(10, 20) },
+      2: { name: 'y', line: 20, loc: loc(20, 0)(20, 15) },
+    },
+  },
+  '/home/user/essay/src/world.js': {
+    path: '/home/user/essay/src/world.js',
+    s: { 1: 1 },
+    b: { },
+    f: { },
+    statementMap: { 1: loc(1, 0)(1, 30) },
+    branchMap: { },
+    fnMap: { }
+  },
+  '/home/user/essay/unrelated.js': {
+    path: '/home/user/essay/unrelated.js',
+    s: { 1: 1 },
+    b: { },
+    f: { },
+    statementMap: { 1: loc(1, 0)(1, 30) },
+    branchMap: { },
+    fnMap: { }
+  }
+}
+const codeBlocks = {
+  'hello.js': { line: 72 },
+  'world.js': { line: 99 }
+}
+const getMappedCoverage = () => mapSourceCoverage(coverage, {
+  codeBlocks,
+  sourceFilePath: '/home/user/essay/README.md',
+  targetDirectory: '/home/user/essay/src'
+})
+
+it('should combine mappings from code blocks', () => {
+  const mapped = getMappedCoverage()
+  assert(Object.keys(mapped).length === 2)
+})
+
+const testReadmeCoverage = (f) => () => (
+  f(getMappedCoverage()['/home/user/essay/README.md'])
+)
+
+it('should have statements', testReadmeCoverage(entry => {
+  const keys = Object.keys(entry.s)
+  assert(keys.length === 2)
+  assert.deepEqual(keys, [ '1.1', '2.1' ])
+}))
+it('should have statementMap', testReadmeCoverage(({ statementMap }) => {
+  assert(statementMap['1.1'].start.line === 73)
+  assert(statementMap['1.1'].end.line === 73)
+  assert(statementMap['2.1'].start.line === 99)
+  assert(statementMap['2.1'].end.line === 99)
+}))
+it('should have branches', testReadmeCoverage(({ b }) => {
+  assert(Array.isArray(b['1.1']))
+}))
+it('should have branchMap', testReadmeCoverage(({ branchMap }) => {
+  assert(branchMap['1.1'].locations[2].start.line === 80)
+  assert(branchMap['1.1'].line === 75)
+}))
+it('should have functions', testReadmeCoverage(({ f }) => {
+  assert(f['1.1'] === 99)
+  assert(f['1.2'] === 30)
+}))
+it('should have function map', testReadmeCoverage(({ fnMap }) => {
+  assert(fnMap['1.1'].loc.start.line === 81)
+  assert(fnMap['1.2'].line === 91)
+}))
 ```
 
 

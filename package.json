@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "./build",
-    "test": "./essay test"
+    "test": "./essay test && ./essay-cov test"
   },
   "author": "Thai Pangsakulyanont <org.yi.dttvb@gmail.com> (http://dt.in.th/)",
   "license": "MIT",
@@ -21,6 +21,8 @@
     "babel-preset-stage-2": "^6.5.0",
     "babel-runtime": "^6.6.1",
     "glob": "^7.0.3",
+    "istanbul": "^0.4.3",
+    "lodash": "^4.11.2",
     "mkdirp": "^0.5.1",
     "mocha": "^2.4.5",
     "power-assert": "^1.4.0",
