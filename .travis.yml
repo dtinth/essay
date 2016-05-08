@@ -8,3 +8,11 @@ before_script:
 - npm run build
 after_success:
 - codecov
+deploy:
+  provider: npm
+  email: org.yi.dttvb@gmail.com
+  api_key:
+    secure: WtUlANDjjd4aJ+r7G2RLfmKsZAVAjA+Opi09kSusciZBVQvImc3YVunL+KddsD2ZNS1+DuWnrkWEES0koLNlVy/68nsjjRB37Ca6MiLL/QNIJewXI8wmnb3laJX9lVBSDB9I9OMz8iNzET+6LzHbuT87zEbkstrGG27j4QIGuKNBb4HTfIUsS2oYFurqvpBWmSEcy2kRU6LvY0YVV4eUErns3nuaKBmtMiVFfYPxeVNBgk9/foQeiN18JLxQODHNCT81jX/8hz6sHij/D3mibhBPuapRvYHw8j+IXz6UgSe4m+idsfexNyWtKbD/+xEWuQUVfP18V8thjSxbH/W6tOW3Nou431BrmTkXnFTL4O5f/DLPBDqjLXKbhjsUGa7F8+2BjnH9ko1sp9v6RndZs0o1CbEocN5hsH7FyVh9hQAkuE7prtjtxhBKUfnd3p0Tc1wF/6BgndAz5BKk2k4ISaY8HgGoI0xUPcH7Wl5RrDdhM0QsMuw4Lqng6PDfqqT+hJPSijGuyvGzAfPNsnv2ZB1OiKnrs9ysJZsG00565/sRNQTVyasEAq6rlvdgW6wPAlrxSi+7y0HKCNT1MRd/PxOOm6065S7Oty1ujekf8KXGvumrOHeM0eEzozp2YQ0XFeXE6QcRWbq1ta/BoifcYe4uCKAHbwieg5LVQxumPK0=
+  on:
+    tags: true
+    repo: dtinth/essay
