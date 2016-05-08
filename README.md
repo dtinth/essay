@@ -15,22 +15,27 @@ __Generate your JavaScript library out of an essay!__
 
 - __Write code in your README.md file__ in fenced code blocks, with a comment indicating the file’s name.
 
-- __Write code using ES2015 syntax__. `essay` will use Babel to transpile them to ES5.
+- __Write code using ES2015 syntax__. `essay` will use [Babel](https://babeljs.io/) to transpile them to ES5.
 
-- __Test your code__ using Mocha and power-assert.
+- __Test your code__ using [Mocha](https://mochajs.org/) and [power-assert](https://github.com/power-assert-js/power-assert).
 
-- __Measures your code coverage__. `essay` generates code coverage report for your README.md file!
+- __Measures your code coverage__. `essay` generates [code coverage report for your README.md file][codecov] using [Istanbul](https://github.com/gotwarlost/istanbul) and [babel-plugin-\_\_coverage\_\_](https://github.com/dtinth/babel-plugin-__coverage__).
+
+- __Examples__ of JavaScript libraries written using `essay`:
+
+  - [circumstance](https://github.com/dtinth/circumstance): BDD for your pure state-updating functions (e.g. Redux reducers)
+
 
 ## synopsis
 
-For example, you could write your library like this:
+For example, you could write your library in a fenced code block in your README.md file like this:
 
 ```js
 // examples/add.js
 export default (a, b) => a + b
 ```
 
-And write a test for it:
+And also write a test for it:
 
 ```js
 // examples/add.test.js
@@ -43,12 +48,55 @@ it('should add two numbers', () => {
 ```
 
 
+### getting started
+
+1. Make sure you already have your README.md file in place and already initialized your npm package (e.g. using `npm init`).
+
+2. Install `essay` as your dev dependency.
+
+    ```
+    npm install --save-dev essay
+    ```
+
+3. Ignore these folders in `.npmignore`:
+
+    ```
+    src
+    lib
+    lib-cov
+    ```
+
+4. Add `"files"` array to your `package.json`:
+
+    ```json
+    "files": [
+      "lib",
+      "src"
+    ]
+    ```
+
+5. Add the `"scripts"` to your `package.json`:
+
+    ```json
+    "scripts": {
+      "prepublish": "essay build",
+      "test": "essay test"
+    },
+    ```
+
+6. Set your main to the file you want to use, prefixed with `lib/`:
+
+    ```json
+    "main": "lib/index.js",
+    ```
+
+
 ### building
 
 When you run:
 
 ```
-essay
+npm run prepublish # -> essay build
 ```
 
 These code blocks will be extracted into its own file:
@@ -72,7 +120,7 @@ The `src` folder contains the code as written in README.md, and the `lib` folder
 When you run:
 
 ```
-essay test
+npm test # -> essay test
 ```
 
 All the files ending with `.test.js` will be run using Mocha framework. `power-assert` is included by default (but you can use any assertion library you want).
