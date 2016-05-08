@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "babel-polyfill": "^6.8.0",
-    "essay": "1.0.0",
+    "essay": "3.0.0-0",
     "standard": "^7.0.1"
   },
   "repository": {
