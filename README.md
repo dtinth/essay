@@ -4,8 +4,8 @@
 [![Build status][travis-svg]][travis]
 [![Code coverage][codecov-svg]][codecov]
 
-[travis]: https://travis-ci.org/dtinth/essay.git
-[travis-svg]: https://img.shields.io/travis/dtinth/essay.git.svg?style=flat
+[travis]: https://travis-ci.org/dtinth/essay
+[travis-svg]: https://img.shields.io/travis/dtinth/essay.svg?style=flat
 [npm]: https://www.npmjs.com/package/essay
 [npm-svg]: https://img.shields.io/npm/v/essay.svg?style=flat
 [codecov]: https://codecov.io/github/dtinth/essay
