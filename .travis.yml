@@ -4,4 +4,7 @@ node_js:
 install:
 - npm install --force
 before_script:
+- npm install -g codecov
 - npm run build
+after_success:
+- codecov
