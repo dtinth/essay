@@ -8,7 +8,7 @@
 [travis-svg]: https://img.shields.io/travis/dtinth/essay.svg?style=flat
 [npm]: https://www.npmjs.com/package/essay
 [npm-svg]: https://img.shields.io/npm/v/essay.svg?style=flat
-[codecov]: https://codecov.io/github/dtinth/essay
+[codecov]: https://codecov.io/gh/dtinth/essay/src/master/README.md
 [codecov-svg]: https://img.shields.io/codecov/c/github/dtinth/essay.svg
 
 __Generate your JavaScript library out of an essay!__
