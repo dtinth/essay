@@ -1,6 +1,6 @@
 {
   "name": "essay",
-  "version": "2.0.0",
+  "version": "3.0.0-0",
   "description": "Generate a JavaScript library from your README.md!",
   "main": "index.js",
   "bin": {
@@ -11,7 +11,11 @@
     "prepublish": "npm run build",
     "test": "./essay test"
   },
-  "files": [ "lib", "src", "essay" ],
+  "files": [
+    "lib",
+    "src",
+    "essay"
+  ],
   "author": "Thai Pangsakulyanont <org.yi.dttvb@gmail.com> (http://dt.in.th/)",
   "license": "MIT",
   "dependencies": {
