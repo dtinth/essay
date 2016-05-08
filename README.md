@@ -1,8 +1,17 @@
 
 # essay
 
-Generate your JavaScript library out of an essay!
-Write your JavaScript library and explain your reasoning in a `README.md` file.
+__Generate your JavaScript library out of an essay!__
+
+- __Write code in your README.md file__ in fenced code blocks, with a comment indicating the file’s name.
+
+- __Write code using ES2015 syntax__. `essay` will use Babel to transpile them to ES5.
+
+- __Test your code__ using Mocha and power-assert.
+
+- __Measures your code coverage__. `essay` generates code coverage report for your README.md file!
+
+## synopsis
 
 For example, you could write your library like this:
 
@@ -24,13 +33,46 @@ it('should add two numbers', () => {
 ```
 
 
-## usage
+### building
 
-1. Create your README.md with fenced code blocks.
+When you run:
 
-2. Run `essay`.
+```
+essay
+```
 
-3. It should generate files in your "./lib" directory.
+These code blocks will be extracted into its own file:
+
+```
+src
+└── examples
+    ├── add.js
+    └── add.test.js
+lib
+└── examples
+    ├── add.js
+    └── add.test.js
+```
+
+The `src` folder contains the code as written in README.md, and the `lib` folder contains the transpiled code.
+
+
+### testing
+
+When you run:
+
+```
+essay test
+```
+
+All the files ending with `.test.js` will be run using Mocha framework. `power-assert` is included by default (but you can use any assertion library you want).
+
+```
+  examples/add.test.js
+    ✓ should add two numbers
+```
+
+Additionally, test coverage report for your README.md file will be generated.
 
 
 
@@ -42,46 +84,9 @@ but `npm` doesn’t want to install a package as a dependency of itself
 
 
 
-## implementation
+## commands
 
-### CLI
-
-```js
-// cli/index.js
-import * as buildCommand from './buildCommand'
-import * as testCommand from './testCommand'
-
-export function main () {
-  // XXX: Work around yargs’ lack of default command support.
-  const commands = [ buildCommand, testCommand ]
-  const yargs = commands.reduce(appendCommandToYargs, require('yargs')).help()
-  const registry = commands.reduce(registerCommandToRegistry, { })
-  const argv = yargs.argv
-  const command = argv._.shift() || 'build'
-  const commandObject = registry[command]
-  if (commandObject) {
-    const subcommand = commandObject.builder(yargs.reset())
-    Promise.resolve(commandObject.handler(argv)).catch(e => {
-      setTimeout(() => { throw e })
-    })
-  } else {
-    yargs.showHelp()
-  }
-}
-
-function appendCommandToYargs (yargs, command) {
-  return yargs.command(command.command, command.description)
-}
-
-function registerCommandToRegistry (registry, command) {
-  return Object.assign(registry, {
-    [command.command]: command
-  })
-}
-```
-
-
-#### build command
+### `essay build`
 
 ```js
 // cli/buildCommand.js
@@ -103,7 +108,7 @@ export const handler = async (argv) => {
 ```
 
 
-#### test command
+### `essay test`
 
 ```js
 // cli/testCommand.js
@@ -127,7 +132,9 @@ export const handler = async (argv) => {
 ```
 
 
-### obtaining code blocks
+## obtaining code blocks
+
+This IO function reads your README.md and extracts the fenced code blocks.
 
 ```js
 // obtainCodeBlocks.js
@@ -146,7 +153,9 @@ export default obtainCodeBlocks
 
 ### code block extraction
 
-This function extracts all the code blocks:
+This function takes a string (representing your README.md) and extracts the fenced code block. Returns an object of code block entries, which contains the contents and line number in README.md.
+
+See the test (below) for more details:
 
 ```js
 // extractCodeBlocks.js
@@ -167,7 +176,7 @@ export function extractCodeBlocks (data) {
 export default extractCodeBlocks
 ```
 
-Let’s test it!
+Here’s the test for this function:
 
 ```js
 // extractCodeBlocks.test.js
@@ -213,37 +222,24 @@ it('should contain line numbers', () => {
 ```
 
 
-### dumping code blocks to source files
-
-We’re going to build each file one by one.
+## dumping code blocks to source files
 
 ```js
 // dumpSourceCodeBlocks.js
 import forEachCodeBlock from './forEachCodeBlock'
-import extractCodeBlockToSourceFile from './extractCodeBlockToSourceFile'
+import saveToFile from './saveToFile'
+import path from 'path'
 
-export const dumpSourceCodeBlocks = forEachCodeBlock(extractCodeBlockToSourceFile)
+export const dumpSourceCodeBlocks = forEachCodeBlock(async ({ contents }, filename) => {
+  const targetFilePath = path.join('src', filename)
+  await saveToFile(targetFilePath, contents)
+})
 
 export default dumpSourceCodeBlocks
 ```
 
-Now, to write each code block to a file:
 
-```js
-// extractCodeBlockToSourceFile.js
-import path from 'path'
-
-import saveToFile from './saveToFile'
-
-export async function extractCodeBlockToSourceFile ({ contents }, filename) {
-  const targetFilePath = path.join('src', filename)
-  await saveToFile(targetFilePath, contents)
-}
-
-export default extractCodeBlockToSourceFile
-```
-
-### transpilation using Babel
+## transpilation using Babel
 
 ```js
 // transpileCodeBlocks.js
@@ -256,6 +252,13 @@ export function transpileCodeBlocks (options) {
 
 export default transpileCodeBlocks
 ```
+
+
+### transpiling an individual code block
+
+To speed up transpilation,
+we’ll skip the transpilation process if the source file has not been modified
+since the corresponding transpiled file has been generated (similar to make).
 
 ```js
 // transpileCodeBlock.js
@@ -285,6 +288,9 @@ async function isAlreadyUpToDate (sourceFilePath, targetFilePath) {
 export default transpileCodeBlock
 ```
 
+
+## babel configuration
+
 ```js
 // getBabelConfig.js
 export function getBabelConfig () {
@@ -301,6 +307,8 @@ export function getBabelConfig () {
 
 export default getBabelConfig
 ```
+
+### additional options for testing
 
 ```js
 // getTestingBabelConfig.js
@@ -322,7 +330,10 @@ export default getTestingBabelConfig
 ```
 
 
-### running unit tests
+
+## running unit tests
+
+It’s quite hackish right now, but it works.
 
 ```js
 // runUnitTests.js
@@ -331,12 +342,17 @@ import saveToFile from './saveToFile'
 import mapSourceCoverage from './mapSourceCoverage'
 
 export async function runUnitTests (codeBlocks) {
-  const Mocha = require('mocha')
-  const mocha = new Mocha({ ui: 'bdd' })
+  // Generate an entry file for mocha to use.
   const testEntryFilename = './lib-cov/_test-entry.js'
   const entry = generateEntryFile(codeBlocks)
   await saveToFile(testEntryFilename, entry)
+
+  // Initialize mocha with the entry file.
+  const Mocha = require('mocha')
+  const mocha = new Mocha({ ui: 'bdd' })
   mocha.addFile(testEntryFilename)
+
+  // Now go!!
   prepareTestEnvironment()
   await runMocha(mocha)
   await saveCoverageData(codeBlocks)
@@ -390,9 +406,9 @@ async function saveCoverageData (codeBlocks) {
 export default runUnitTests
 ```
 
-#### the coverage magic
+### the coverage magic
 
-This module rewrites coverage data to be in README.md!
+This module rewrites the coverage data so that you can view the coverage report for README.md. It’s quite complex and thus deserves its own section.
 
 ```js
 // mapSourceCoverage.js
@@ -475,6 +491,8 @@ function mapLocation (mapLine) {
 
 export default mapSourceCoverage
 ```
+
+And its tests is quite… ugh!
 
 ```js
 // mapSourceCoverage.test.js
@@ -573,9 +591,87 @@ it('should have function map', testReadmeCoverage(({ fnMap }) => {
 ```
 
 
-### utilities
+## acceptance test
 
-This function saves files to the file system. Just a utility functions.
+```js
+// acceptance.test.js
+import mkdirp from 'mkdirp'
+import fs from 'fs'
+import * as buildCommand from './cli/buildCommand'
+import * as testCommand from './cli/testCommand'
+
+it('works', async () => {
+  const example = fs.readFileSync('example.md', 'utf8')
+  await runInTemporaryDir(async () => {
+    fs.writeFileSync('README.md', example)
+    await buildCommand.handler({ })
+    assert(fs.existsSync('src/add.js'))
+    assert(fs.existsSync('lib/add.js'))
+    await testCommand.handler({ })
+    assert(fs.existsSync('coverage/lcov.info'))
+  })
+})
+
+async function runInTemporaryDir (f) {
+  const cwd = process.cwd()
+  const testDirectory = '/tmp/essay-acceptance-test'
+  mkdirp.sync(testDirectory)
+  try {
+    process.chdir(testDirectory)
+    await f()
+  } finally {
+    process.chdir(cwd)
+  }
+}
+```
+
+
+## miscellaneous
+
+### command line handler
+
+```js
+// cli/index.js
+import * as buildCommand from './buildCommand'
+import * as testCommand from './testCommand'
+
+export function main () {
+  // XXX: Work around yargs’ lack of default command support.
+  const commands = [ buildCommand, testCommand ]
+  const yargs = commands.reduce(appendCommandToYargs, require('yargs')).help()
+  const registry = commands.reduce(registerCommandToRegistry, { })
+  const argv = yargs.argv
+  const command = argv._.shift() || 'build'
+  const commandObject = registry[command]
+  if (commandObject) {
+    const subcommand = commandObject.builder(yargs.reset())
+    Promise.resolve(commandObject.handler(argv)).catch(e => {
+      setTimeout(() => { throw e })
+    })
+  } else {
+    yargs.showHelp()
+  }
+}
+
+function appendCommandToYargs (yargs, command) {
+  return yargs.command(command.command, command.description)
+}
+
+function registerCommandToRegistry (registry, command) {
+  return Object.assign(registry, {
+    [command.command]: command
+  })
+}
+```
+
+
+### saving file
+
+This function wraps around the normal file system API, but provides this benefits:
+
+- It will first read the file, and if the content is identical, it will not re-write the file.
+
+- It displays log message on console.
 
 ```js
 // saveToFile.js
@@ -597,7 +693,8 @@ export async function saveToFile (filePath, contents) {
 export default saveToFile
 ```
 
-This function runs something for each code block:
+
+### run a function for each code block
 
 ```js
 // forEachCodeBlock.js

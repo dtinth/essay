@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "./build",
-    "test": "./essay test && ./essay-cov test"
+    "test": "./essay test"
   },
   "author": "Thai Pangsakulyanont <org.yi.dttvb@gmail.com> (http://dt.in.th/)",
   "license": "MIT",
