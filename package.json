@@ -8,8 +8,10 @@
   },
   "scripts": {
     "build": "./build",
+    "prepublish": "npm run build",
     "test": "./essay test"
   },
+  "files": [ "lib", "src", "essay" ],
   "author": "Thai Pangsakulyanont <org.yi.dttvb@gmail.com> (http://dt.in.th/)",
   "license": "MIT",
   "dependencies": {
