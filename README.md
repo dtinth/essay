@@ -21,9 +21,13 @@ __Generate your JavaScript library out of an essay!__
 
 - __Measures your code coverage__. `essay` generates [code coverage report for your README.md file][codecov] using [Istanbul](https://github.com/gotwarlost/istanbul) and [babel-plugin-\_\_coverage\_\_](https://github.com/dtinth/babel-plugin-__coverage__).
 
-- __Examples__ of JavaScript libraries written using `essay`:
+- __Examples__ of JavaScript libraries/articles written using `essay`:
 
   - [circumstance](https://github.com/dtinth/circumstance): BDD for your pure state-updating functions (e.g. Redux reducers)
+  - [positioning-strategy](https://github.com/taskworld/positioning-strategy): A library that implements an algorithm to calculate where to position an element relative to another element.
+  - [code-to-essay](https://github.com/zugarzeeker/code-to-essay): Turns your code into an essay-formatted Markdown file.
+  - [timetable-calculator](https://github.com/zugarzeeker/timetable-calculator): An algorithm for computing the layout for a timetable, handling the case where items are overlapped.
+  - Using __essay__ to write a library/article? Feel free to add your link here: please submit a PR!
 
 
 ## synopsis
