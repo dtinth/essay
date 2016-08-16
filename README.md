@@ -23,10 +23,14 @@ __Generate your JavaScript library out of an essay!__
 
 - __Examples__ of JavaScript libraries/articles written using `essay`:
 
-  - [circumstance](https://github.com/dtinth/circumstance): BDD for your pure state-updating functions (e.g. Redux reducers)
-  - [positioning-strategy](https://github.com/taskworld/positioning-strategy): A library that implements an algorithm to calculate where to position an element relative to another element.
-  - [code-to-essay](https://github.com/zugarzeeker/code-to-essay): Turns your code into an essay-formatted Markdown file.
-  - [timetable-calculator](https://github.com/zugarzeeker/timetable-calculator): An algorithm for computing the layout for a timetable, handling the case where items are overlapped.
+  | Project | Description |
+  | ------- | ----------- |
+  | [circumstance](https://github.com/dtinth/circumstance) | BDD for your pure state-updating functions (e.g. Redux reducers) |
+  | [positioning-strategy](https://github.com/taskworld/positioning-strategy) | A library that implements an algorithm to calculate where to position an element relative to another element |
+  | [code-to-essay](https://github.com/zugarzeeker/code-to-essay) | Turns your code into an essay-formatted Markdown file. |
+  | [timetable-calculator](https://github.com/zugarzeeker/timetable-calculator) | An algorithm for computing the layout for a timetable, handling the case where items are overlapped. |
+  | [impure](https://github.com/taskworld/impure) | A simple wrapper object for non-deterministic code (like IO monads in Haskell) |
+
   - Using __essay__ to write a library/article? Feel free to add your link here: please submit a PR!
 
 
