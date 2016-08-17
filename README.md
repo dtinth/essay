@@ -66,7 +66,7 @@ it('should add two numbers', () => {
     npm install --save-dev essay
     ```
 
-3. Ignore these folders in `.npmignore`:
+3. Ignore these folders in `.gitignore`:
 
     ```
     src
