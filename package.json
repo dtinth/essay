@@ -8,8 +8,9 @@
   },
   "scripts": {
     "build": "./build",
-    "prepublish": "npm run build",
-    "test": "./essay test"
+    "prepublish": "npm run lint && npm run build",
+    "test": "./essay test",
+    "lint": "./essay lint"
   },
   "files": [
     "lib",
@@ -33,6 +34,7 @@
     "mocha": "^2.4.5",
     "power-assert": "^1.4.0",
     "rimraf": "^2.5.2",
+    "standard": "^7.0.1",
     "yargs": "^4.7.0"
   },
   "devDependencies": {

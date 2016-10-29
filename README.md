@@ -197,6 +197,22 @@ export const handler = async (argv) => {
 }
 ```
 
+### `essay lint`
+
+```js
+// cli/lintCommand.js
+import obtainCodeBlocks from '../obtainCodeBlocks'
+import runLinter from '../runLinter'
+
+export const command = 'lint'
+export const description = 'Runs the linter.'
+export const builder = (yargs) => yargs
+export const handler = async (argv) => {
+  const codeBlocks = await obtainCodeBlocks()
+  await runLinter(codeBlocks, argv)
+}
+```
+
 
 ## obtaining code blocks
 
@@ -396,7 +412,6 @@ export default getTestingBabelConfig
 ```
 
 
-
 ## running unit tests
 
 It’s quite hackish right now, but it works.
@@ -471,6 +486,49 @@ async function saveCoverageData (codeBlocks) {
 
 export default runUnitTests
 ```
+
+
+## running linter
+```js
+// runLinter.js
+import standard from 'standard'
+import forEachCodeBlock from './forEachCodeBlock'
+
+const paddingText = (width, string, padding = ' ') => {
+  return (width <= string.length) ? string : paddingText(width, string + padding, padding)
+}
+
+const runStandardLinter = (contents, options) => (
+  new Promise((resolve, reject) => {
+    standard.lintText(contents, options, (err, { results }) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
+  })
+);
+
+const formatLintError = (startingLine, filename) => (error) => [
+  paddingText(10, (error.line + startingLine - 1) + ':' + error.column + ': ') +
+  paddingText(20, filename) +
+  error.message + ' ' + '(' + error.ruleId + ')'
+]
+
+export async function runLinter (codeBlocks, options) {
+  let errors = []
+  await forEachCodeBlock(async (contents, filename, codeBlocks) => {
+    const { line } = codeBlocks[filename]
+    const results = await runStandardLinter(contents, options)
+    results.map(({ messages }) => {
+      const newErrors = messages.map(formatLintError(line, filename))
+      errors = errors.concat(newErrors)
+    })
+  })(codeBlocks)
+  console.error(errors.join('\n'));
+}
+
+export default runLinter
+```
+
 
 ### the coverage magic
 
@@ -700,10 +758,11 @@ async function runInTemporaryDir (f) {
 // cli/index.js
 import * as buildCommand from './buildCommand'
 import * as testCommand from './testCommand'
+import * as lintCommand from './lintCommand'
 
 export function main () {
   // XXX: Work around yargs’ lack of default command support.
-  const commands = [ buildCommand, testCommand ]
+  const commands = [ buildCommand, testCommand, lintCommand ]
   const yargs = commands.reduce(appendCommandToYargs, require('yargs')).help()
   const registry = commands.reduce(registerCommandToRegistry, { })
   const argv = yargs.argv
