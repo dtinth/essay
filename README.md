@@ -504,9 +504,14 @@ export const countLinterErrors = (results) => results[0].messages.length
 
 export const runStandardLinter = (contents, fix) => (
   new Promise((resolve, reject) => {
-    standard.lintText(contents, { fix }, (err, { results }) => {
+    const disabledRules = ['no-undef', 'no-unused-vars', 'no-lone-blocks', 'no-labels']
+    const eslintDisable = '/* eslint-disable ' + disabledRules.join(', ') + ' */\n'
+    standard.lintText(eslintDisable + contents, { fix }, (err, { results }) => {
       if (err) reject(err);
-      else resolve(results);
+      else resolve(results.map(result => {
+        if (fix && result.output) result.output = result.output.replace(eslintDisable, '')
+        return result
+      }));
     });
   })
 );
@@ -541,16 +546,16 @@ export const insertCodeBlock = (code, filename) => {
   ].join('\n')
 }
 
-export const replaceAll = (text, find, replace) => text.split(find).join(replace)
+export const replaceAll = (text, pattern, replace) => text.split(pattern).join(replace)
 
-export const fixLinterErrors = async (errors, codeBlocks) => {
-  let readme = fs.readFileSync('README.md', 'utf8')
-  errors.map((error) => {
-    const code = codeBlocks[error.filename]
-    const fixedCode = error.output
-    readme = replaceAll(readme, insertCodeBlock(code), insertCodeBlock(fixedCode))
+export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.md') => {
+  let readme = fs.readFileSync(targetPath, 'utf8')
+  errors.map(({ filename, output }) => {
+    const code = codeBlocks[filename].contents.replace(/\n$/g, '')
+    const fixedCode = output
+    readme = replaceAll(readme, insertCodeBlock(code, filename), insertCodeBlock(fixedCode, filename))
   })
-  await saveToFile('README.md', readme)
+  await saveToFile(targetPath, readme)
 }
 
 export async function runLinter (codeBlocks, options) {
@@ -559,10 +564,12 @@ export async function runLinter (codeBlocks, options) {
   await forEachCodeBlock(async ({ contents }, filename, codeBlocks) => {
     const { line } = codeBlocks[filename]
     const results = await runStandardLinter(contents, fix)
-    results.map(({ messages, output }) => {
-      const newErrors = messages.map(formatLinterError(line, filename, output))
-      errors = errors.concat(newErrors)
-    })
+    if (countLinterErrors(results) > 0) {
+      results.map(({ messages, output }) => {
+        const newErrors = messages.map(formatLinterError(line, filename, output))
+        errors = errors.concat(newErrors)
+      })
+    }
   })(codeBlocks)
   if (fix) await fixLinterErrors(errors, codeBlocks)
   else printLinterErrors(errors)
@@ -630,7 +637,7 @@ it('should insert javascript code block', () => {
     '`' + '`' + '`js',
     '// example.js',
     'const x = 5',
-    '`' + '`' + '`',
+    '`' + '`' + '`'
   ].join('\n'))
 })
 
@@ -836,6 +843,7 @@ import mkdirp from 'mkdirp'
 import fs from 'fs'
 import * as buildCommand from './cli/buildCommand'
 import * as testCommand from './cli/testCommand'
+import * as lintCommand from './cli/lintCommand'
 
 it('works', async () => {
   const example = fs.readFileSync('example.md', 'utf8')
@@ -846,6 +854,9 @@ it('works', async () => {
     assert(fs.existsSync('lib/add.js'))
     await testCommand.handler({ })
     assert(fs.existsSync('coverage/lcov.info'))
+    await lintCommand.handler({ _: ['fix'] })
+    assert(fs.existsSync('README.md'))
+    assert(fs.readFileSync('README.md', 'utf8') === example)
   })
 })
 
