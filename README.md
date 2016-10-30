@@ -491,6 +491,8 @@ export default runUnitTests
 ## running linter
 ```js
 // runLinter.js
+import fs from 'fs'
+import saveToFile from './saveToFile'
 import standard from 'standard'
 import forEachCodeBlock from './forEachCodeBlock'
 
@@ -498,32 +500,70 @@ const paddingText = (width, string, padding = ' ') => {
   return (width <= string.length) ? string : paddingText(width, string + padding, padding)
 }
 
-const runStandardLinter = (contents, options) => (
+const runStandardLinter = (contents, fix) => (
   new Promise((resolve, reject) => {
-    standard.lintText(contents, options, (err, { results }) => {
+    standard.lintText(contents, { fix }, (err, { results }) => {
       if (err) reject(err);
       else resolve(results);
     });
   })
 );
 
-const formatLintError = (startingLine, filename) => (error) => [
-  paddingText(10, (error.line + startingLine - 1) + ':' + error.column + ': ') +
-  paddingText(20, filename) +
+const formatLineLinterError = (error) => (
+  paddingText(10, error.line + ':' + error.column + ': ') +
+  paddingText(20, error.filename) +
   error.message + ' ' + '(' + error.ruleId + ')'
-]
+)
+
+const formatLinterError = (line, filename, output) => (error) => {
+  error.line += line - 1
+  error.filename = filename
+  error.output = output
+  return error
+}
+
+const printLinterErrors = (errors) => {
+  console.error(errors.map(formatLineLinterError).join('\n'))
+}
+
+const isFix = (options) => options._ && options._[0] === 'fix'
+
+const insertCodeBlock = (code, filename) => {
+  const END = '`' + '`' + '`'
+  const BEGIN = END + 'js'
+  return [
+    BEGIN,
+    '// ' + filename,
+    code,
+    END
+  ].join('\n')
+}
+
+const replaceAll = (text, find, replace) => text.split(find).join(replace)
+
+const fixLinterErrors = async (errors, codeBlocks) => {
+  let readme = fs.readFileSync('README.md', 'utf8')
+  errors.map((error) => {
+    const code = codeBlocks[error.filename]
+    const fixedCode = error.output
+    readme = replaceAll(readme, insertCodeBlock(code), insertCodeBlock(fixedCode))
+  })
+  await saveToFile('README.md', readme)
+}
 
 export async function runLinter (codeBlocks, options) {
   let errors = []
-  await forEachCodeBlock(async (contents, filename, codeBlocks) => {
+  const fix = isFix(options)
+  await forEachCodeBlock(async ({ contents }, filename, codeBlocks) => {
     const { line } = codeBlocks[filename]
-    const results = await runStandardLinter(contents, options)
-    results.map(({ messages }) => {
-      const newErrors = messages.map(formatLintError(line, filename))
+    const results = await runStandardLinter(contents, fix)
+    results.map(({ messages, output }) => {
+      const newErrors = messages.map(formatLinterError(line, filename, output))
       errors = errors.concat(newErrors)
     })
   })(codeBlocks)
-  console.error(errors.join('\n'));
+  printLinterErrors(errors)
+  if (fix) await fixLinterErrors(errors, codeBlocks)
 }
 
 export default runLinter

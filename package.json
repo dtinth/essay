@@ -10,7 +10,8 @@
     "build": "./build",
     "prepublish": "npm run lint && npm run build",
     "test": "./essay test",
-    "lint": "./essay lint"
+    "lint": "./essay lint",
+    "lint-fix": "./essay lint fix"
   },
   "files": [
     "lib",
