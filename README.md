@@ -529,7 +529,7 @@ export const formatLineLinterError = (error) => (
 export const formatLinterError = (line, filename, output) => (error) => {
   error.line += line - 1
   error.filename = filename
-  error.output = output
+  error.fixedCode = output
   return error
 }
 
@@ -554,10 +554,11 @@ export const replaceAll = (text, pattern, replace) => text.split(pattern).join(r
 
 export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.md') => {
   let readme = fs.readFileSync(targetPath, 'utf8')
-  errors.map(({ filename, output }) => {
+  errors.map(({ filename, fixedCode }) => {
     const code = codeBlocks[filename].contents.replace(/\n$/g, '')
-    const fixedCode = output
-    readme = replaceAll(readme, insertCodeBlock(code, filename), insertCodeBlock(fixedCode, filename))
+    if (fixedCode) {
+      readme = replaceAll(readme, insertCodeBlock(code, filename), insertCodeBlock(fixedCode, filename))
+    }
   })
   await saveToFile(targetPath, readme)
 }
@@ -606,7 +607,7 @@ it('should format linter error', () => {
   const error = formatLinterError(5, 'example.js', 'const x = 5')({ line: 5 })
   assert(error.line === 9)
   assert(error.filename === 'example.js')
-  assert(error.output === 'const x = 5')
+  assert(error.fixedCode === 'const x = 5')
 })
 
 it('should count linter errors', () => {
