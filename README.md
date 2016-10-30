@@ -496,11 +496,13 @@ import saveToFile from './saveToFile'
 import standard from 'standard'
 import forEachCodeBlock from './forEachCodeBlock'
 
-const paddingText = (width, string, padding = ' ') => {
+export const paddingText = (width, string, padding = ' ') => {
   return (width <= string.length) ? string : paddingText(width, string + padding, padding)
 }
 
-const runStandardLinter = (contents, fix) => (
+export const countLinterErrors = (results) => results[0].messages.length
+
+export const runStandardLinter = (contents, fix) => (
   new Promise((resolve, reject) => {
     standard.lintText(contents, { fix }, (err, { results }) => {
       if (err) reject(err);
@@ -509,26 +511,26 @@ const runStandardLinter = (contents, fix) => (
   })
 );
 
-const formatLineLinterError = (error) => (
+export const formatLineLinterError = (error) => (
   paddingText(10, error.line + ':' + error.column + ': ') +
   paddingText(20, error.filename) +
   error.message + ' ' + '(' + error.ruleId + ')'
 )
 
-const formatLinterError = (line, filename, output) => (error) => {
+export const formatLinterError = (line, filename, output) => (error) => {
   error.line += line - 1
   error.filename = filename
   error.output = output
   return error
 }
 
-const printLinterErrors = (errors) => {
+export const printLinterErrors = (errors) => {
   console.error(errors.map(formatLineLinterError).join('\n'))
 }
 
-const isFix = (options) => options._ && options._[0] === 'fix'
+export const isFix = (options) => !!options._ && options._[0] === 'fix'
 
-const insertCodeBlock = (code, filename) => {
+export const insertCodeBlock = (code, filename) => {
   const END = '`' + '`' + '`'
   const BEGIN = END + 'js'
   return [
@@ -539,9 +541,9 @@ const insertCodeBlock = (code, filename) => {
   ].join('\n')
 }
 
-const replaceAll = (text, find, replace) => text.split(find).join(replace)
+export const replaceAll = (text, find, replace) => text.split(find).join(replace)
 
-const fixLinterErrors = async (errors, codeBlocks) => {
+export const fixLinterErrors = async (errors, codeBlocks) => {
   let readme = fs.readFileSync('README.md', 'utf8')
   errors.map((error) => {
     const code = codeBlocks[error.filename]
@@ -562,11 +564,82 @@ export async function runLinter (codeBlocks, options) {
       errors = errors.concat(newErrors)
     })
   })(codeBlocks)
-  printLinterErrors(errors)
   if (fix) await fixLinterErrors(errors, codeBlocks)
+  else printLinterErrors(errors)
 }
 
 export default runLinter
+```
+
+And its tests
+
+```js
+// runLinter.test.js
+import {
+  paddingText,
+  runStandardLinter,
+  formatLineLinterError,
+  formatLinterError,
+  countLinterErrors,
+  isFix,
+  insertCodeBlock,
+  replaceAll
+} from './runLinter'
+
+it('should create padding text', () => {
+  assert(paddingText(5, 'hello') === 'hello')
+  assert(paddingText(6, 'hello') === 'hello ')
+  assert(paddingText(7, 'hello', '_') === 'hello__')
+})
+
+it('should format linter error', () => {
+  const error = formatLinterError(5, 'example.js', 'const x = 5')({ line: 5 })
+  assert(error.line === 9)
+  assert(error.filename === 'example.js')
+  assert(error.output === 'const x = 5')
+})
+
+it('should count linter errors', () => {
+  assert(countLinterErrors([{ messages: [{}, {}] }]) === 2)
+  assert(countLinterErrors([{ messages: [{}] }]) === 1)
+})
+
+it('should format line linter error', () => {
+  const error = {
+    line: 5,
+    column: 10,
+    message: 'message',
+    filename: 'example.js',
+    ruleId: 'ruleId'
+  }
+  const line = formatLineLinterError(error)
+  assert(line === '5:10:     example.js          message (ruleId)')
+})
+
+it('should convert params fix to boolean', () => {
+  assert(isFix({ _: ['fix'] }) === true)
+  assert(isFix({}) === false)
+})
+
+it('should replace all matched substring with pattern', () => {
+  assert(replaceAll('aaaaa|aa', 'aa', 'b') === 'bba|b')
+})
+
+it('should insert javascript code block', () => {
+  assert(insertCodeBlock('const x = 5', 'example.js') === [
+    '`' + '`' + '`js',
+    '// example.js',
+    'const x = 5',
+    '`' + '`' + '`',
+  ].join('\n'))
+})
+
+it('should lint text with standard linter', async () => {
+  assert(countLinterErrors(await runStandardLinter('1 === 2\n', false)) === 0)
+  assert(countLinterErrors(await runStandardLinter('1 === 2', false)) === 1)
+  assert(countLinterErrors(await runStandardLinter('1 == 2', false)) === 2)
+})
+
 ```
 
 
