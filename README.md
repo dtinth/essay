@@ -502,16 +502,20 @@ export const paddingText = (width, string, padding = ' ') => {
 
 export const countLinterErrors = (results) => results[0].messages.length
 
+export const removeEslintDisable = (remover) => (result) => {
+  if (result.output) {
+    result.output = result.output.replace(remover, '')
+  }
+  return result
+}
+
 export const runStandardLinter = (contents, fix) => (
   new Promise((resolve, reject) => {
     const disabledRules = ['no-undef', 'no-unused-vars', 'no-lone-blocks', 'no-labels']
     const eslintDisable = '/* eslint-disable ' + disabledRules.join(', ') + ' */\n'
     standard.lintText(eslintDisable + contents, { fix }, (err, { results }) => {
       if (err) reject(err);
-      else resolve(results.map(result => {
-        if (fix && result.output) result.output = result.output.replace(eslintDisable, '')
-        return result
-      }));
+      else resolve(results.map(removeEslintDisable(eslintDisable)))
     });
   })
 );
@@ -564,12 +568,10 @@ export async function runLinter (codeBlocks, options) {
   await forEachCodeBlock(async ({ contents }, filename, codeBlocks) => {
     const { line } = codeBlocks[filename]
     const results = await runStandardLinter(contents, fix)
-    if (countLinterErrors(results) > 0) {
-      results.map(({ messages, output }) => {
-        const newErrors = messages.map(formatLinterError(line, filename, output))
-        errors = errors.concat(newErrors)
-      })
-    }
+    results.map(({ messages, output }) => {
+      const newErrors = messages.map(formatLinterError(line, filename, output))
+      errors = errors.concat(newErrors)
+    })
   })(codeBlocks)
   if (fix) await fixLinterErrors(errors, codeBlocks)
   else printLinterErrors(errors)
@@ -590,6 +592,7 @@ import {
   countLinterErrors,
   isFix,
   insertCodeBlock,
+  removeEslintDisable,
   replaceAll
 } from './runLinter'
 
@@ -639,6 +642,19 @@ it('should insert javascript code block', () => {
     'const x = 5',
     '`' + '`' + '`'
   ].join('\n'))
+})
+
+it('should remove eslint-disable line', () => {
+  const eslintDisable = '/* eslint-disable some-rule */'
+  const input = {
+    output: [
+      eslintDisable,
+      '// OK'
+    ].join('\n')
+  }
+  const input2 = { output: '// ok' }
+  assert(removeEslintDisable(eslintDisable + '\n')(input).output === '// OK')
+  assert(removeEslintDisable(eslintDisable + '\n')(input2).output === '// ok')
 })
 
 it('should lint text with standard linter', async () => {
