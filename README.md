@@ -502,23 +502,14 @@ export const paddingText = (width, string, padding = ' ') => {
 
 export const countLinterErrors = (results) => results[0].messages.length
 
-export const removeEslintDisable = (remover) => (result) => {
-  if (result.output) {
-    result.output = result.output.replace(remover, '')
-  }
-  return result
-}
-
 export const runStandardLinter = (contents, fix) => (
   new Promise((resolve, reject) => {
-    const disabledRules = ['no-undef', 'no-unused-vars', 'no-lone-blocks', 'no-labels']
-    const eslintDisable = '/* eslint-disable ' + disabledRules.join(', ') + ' */\n'
-    standard.lintText(eslintDisable + contents, { fix }, (err, { results }) => {
-      if (err) reject(err);
-      else resolve(results.map(removeEslintDisable(eslintDisable)))
-    });
+    standard.lintText(contents, { fix }, (err, { results }) => {
+      if (err) reject(err)
+      else resolve(results)
+    })
   })
-);
+)
 
 export const formatLineLinterError = (error) => (
   paddingText(10, error.line + ':' + error.column + ': ') +
@@ -593,7 +584,6 @@ import {
   countLinterErrors,
   isFix,
   insertCodeBlock,
-  removeEslintDisable,
   replaceAll
 } from './runLinter'
 
@@ -643,19 +633,6 @@ it('should insert javascript code block', () => {
     'const x = 5',
     '`' + '`' + '`'
   ].join('\n'))
-})
-
-it('should remove eslint-disable line', () => {
-  const eslintDisable = '/* eslint-disable some-rule */'
-  const input = {
-    output: [
-      eslintDisable,
-      '// OK'
-    ].join('\n')
-  }
-  const input2 = { output: '// ok' }
-  assert(removeEslintDisable(eslintDisable + '\n')(input).output === '// OK')
-  assert(removeEslintDisable(eslintDisable + '\n')(input2).output === '// ok')
 })
 
 it('should lint text with standard linter', async () => {
