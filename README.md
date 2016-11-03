@@ -509,10 +509,12 @@ export const runStandardLinter = (contents, fix) => (
   })
 )
 
-export const formatLineLinterError = (error) => (
-  padRight(error.line + ':' + error.column + ': ', 10, ' ') +
-  padRight(error.filename, 20, ' ') +
-  error.message + ' ' + '(' + error.ruleId + ')'
+export const formatLinterErrorsColumnMode = (errors) => (
+  errors.map((error) => (
+    padRight(error.line + ':' + error.column + ': ', 10, ' ') +
+    padRight(error.filename, 20, ' ') +
+    error.message + ' ' + '(' + error.ruleId + ')'
+  )).join('\n')
 )
 
 export const formatLinterError = (line, filename, output) => (error) => {
@@ -523,7 +525,7 @@ export const formatLinterError = (line, filename, output) => (error) => {
 }
 
 export const printLinterErrors = (errors) => {
-  console.error(errors.map(formatLineLinterError).join('\n'))
+  console.error()
 }
 
 export const isFix = (options) => !!options._ && options._[0] === 'fix'
@@ -567,7 +569,7 @@ export async function runLinter (codeBlocks, options) {
     errors = [...errors, ...mapLinterErrorsToLine(results, line, filename)]
   })(codeBlocks)
   if (fix) await fixLinterErrors(errors, codeBlocks)
-  else printLinterErrors(errors)
+  else formatLinterErrorsColumnMode(errors)
 }
 
 export default runLinter
@@ -581,7 +583,7 @@ import {
   runStandardLinter,
   mapLinterErrorsToLine,
   countLinterErrors,
-  formatLineLinterError,
+  formatLinterErrorsColumnMode,
   isFix,
   generateCodeBlock
 } from './runLinter'
@@ -597,15 +599,15 @@ it('should map linter errors back to line in README.md', () => {
   assert(mappedReadme[0].message === 'message-1')
 })
 
-it('should format line linter error', () => {
-  const error = {
+it('should format linter errors on a column mode', () => {
+  const errors = [{
     line: 5,
     column: 10,
     message: 'message',
     filename: 'example.js',
     ruleId: 'ruleId'
-  }
-  const line = formatLineLinterError(error)
+  }]
+  const line = formatLinterErrorsColumnMode(errors)
   assert(line === '5:10:     example.js          message (ruleId)')
 })
 
