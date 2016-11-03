@@ -495,10 +495,7 @@ import fs from 'fs'
 import saveToFile from './saveToFile'
 import standard from 'standard'
 import forEachCodeBlock from './forEachCodeBlock'
-
-export const paddingText = (width, string, padding = ' ') => {
-  return (width <= string.length) ? string : paddingText(width, string + padding, padding)
-}
+import padRight from 'pad-right'
 
 export const countLinterErrors = (results) => results[0].messages.length
 
@@ -512,8 +509,8 @@ export const runStandardLinter = (contents, fix) => (
 )
 
 export const formatLineLinterError = (error) => (
-  paddingText(10, error.line + ':' + error.column + ': ') +
-  paddingText(20, error.filename) +
+  padRight(error.line + ':' + error.column + ': ', 10, ' ') +
+  padRight(error.filename, 20, ' ') +
   error.message + ' ' + '(' + error.ruleId + ')'
 )
 
@@ -577,7 +574,6 @@ And its tests
 ```js
 // runLinter.test.js
 import {
-  paddingText,
   runStandardLinter,
   formatLineLinterError,
   formatLinterError,
@@ -586,12 +582,6 @@ import {
   insertCodeBlock,
   replaceAll
 } from './runLinter'
-
-it('should create padding text', () => {
-  assert(paddingText(5, 'hello') === 'hello')
-  assert(paddingText(6, 'hello') === 'hello ')
-  assert(paddingText(7, 'hello', '_') === 'hello__')
-})
 
 it('should format linter error', () => {
   const error = formatLinterError(5, 'example.js', 'const x = 5')({ line: 5 })
