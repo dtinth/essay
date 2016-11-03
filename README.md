@@ -832,7 +832,7 @@ import * as lintCommand from './cli/lintCommand'
 it('works', async () => {
   const example = fs.readFileSync('example.md', 'utf8')
   await runInTemporaryDir(async () => {
-    fs.writeFileSync('README.md', example)
+    fs.writeFileSync('README.md', example.replace('a + b', 'a+b'))
     await buildCommand.handler({ })
     assert(fs.existsSync('src/add.js'))
     assert(fs.existsSync('lib/add.js'))
@@ -840,7 +840,7 @@ it('works', async () => {
     assert(fs.existsSync('coverage/lcov.info'))
     await lintCommand.handler({ _: ['fix'] })
     assert(fs.existsSync('README.md'))
-    assert(fs.readFileSync('README.md', 'utf8') === example)
+    assert(fs.readFileSync('README.md', 'utf8') !== example)
   })
 })
 
