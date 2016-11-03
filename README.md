@@ -527,7 +527,7 @@ export const printLinterErrors = (errors) => {
 
 export const isFix = (options) => !!options._ && options._[0] === 'fix'
 
-export const insertCodeBlock = (code, filename) => {
+export const generateCodeBlock = (code, filename) => {
   const END = '`' + '`' + '`'
   const BEGIN = END + 'js'
   return [
@@ -579,7 +579,7 @@ import {
   formatLinterError,
   countLinterErrors,
   isFix,
-  insertCodeBlock,
+  generateCodeBlock,
   replaceAll
 } from './runLinter'
 
@@ -617,7 +617,7 @@ it('should replace all matched substring with pattern', () => {
 })
 
 it('should insert javascript code block', () => {
-  assert(insertCodeBlock('const x = 5', 'example.js') === [
+  assert(generateCodeBlock('const x = 5', 'example.js') === [
     '`' + '`' + '`js',
     '// example.js',
     'const x = 5',
