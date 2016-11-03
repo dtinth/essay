@@ -496,6 +496,7 @@ import saveToFile from './saveToFile'
 import standard from 'standard'
 import forEachCodeBlock from './forEachCodeBlock'
 import padRight from 'pad-right'
+import flatten from 'lodash/flatten'
 
 export const countLinterErrors = (results) => results[0].messages.length
 
@@ -538,18 +539,24 @@ export const generateCodeBlock = (code, filename) => {
   ].join('\n')
 }
 
-export const replaceAll = (text, pattern, replace) => text.split(pattern).join(replace)
-
 export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.md') => {
   let readme = fs.readFileSync(targetPath, 'utf8')
   errors.map(({ filename, fixedCode }) => {
     const code = codeBlocks[filename].contents.replace(/\n$/g, '')
     if (fixedCode) {
-      readme = replaceAll(readme, insertCodeBlock(code, filename), insertCodeBlock(fixedCode, filename))
+      readme = readme.replace(new RegExp(insertCodeBlock(code, filename), 'g'), insertCodeBlock(fixedCode, filename))
     }
   })
   await saveToFile(targetPath, readme)
 }
+
+export const mapLinterErrorsToLine = (results, line, filename) => (
+  flatten(
+    results.map(({ messages, output }) => (
+      messages.map(formatLinterError(line, filename, output))
+    ))
+  )
+)
 
 export async function runLinter (codeBlocks, options) {
   let errors = []
@@ -557,10 +564,7 @@ export async function runLinter (codeBlocks, options) {
   await forEachCodeBlock(async ({ contents }, filename, codeBlocks) => {
     const { line } = codeBlocks[filename]
     const results = await runStandardLinter(contents, fix)
-    results.map(({ messages, output }) => {
-      const newErrors = messages.map(formatLinterError(line, filename, output))
-      errors = errors.concat(newErrors)
-    })
+    errors = [...errors, ...mapLinterErrorsToLine(results, line, filename)]
   })(codeBlocks)
   if (fix) await fixLinterErrors(errors, codeBlocks)
   else printLinterErrors(errors)
@@ -575,24 +579,22 @@ And its tests
 // runLinter.test.js
 import {
   runStandardLinter,
-  formatLineLinterError,
-  formatLinterError,
+  mapLinterErrorsToLine,
   countLinterErrors,
+  formatLineLinterError,
   isFix,
-  generateCodeBlock,
-  replaceAll
+  generateCodeBlock
 } from './runLinter'
 
-it('should format linter error', () => {
-  const error = formatLinterError(5, 'example.js', 'const x = 5')({ line: 5 })
-  assert(error.line === 9)
-  assert(error.filename === 'example.js')
-  assert(error.fixedCode === 'const x = 5')
-})
-
-it('should count linter errors', () => {
-  assert(countLinterErrors([{ messages: [{}, {}] }]) === 2)
-  assert(countLinterErrors([{ messages: [{}] }]) === 1)
+it('should map linter errors back to line in README.md', () => {
+  const linterResults = [
+    { messages: [{ message: 'message-1', line: 2 }], output: '-fixed-' }
+  ];
+  const mappedReadme = mapLinterErrorsToLine(linterResults, 5, 'example.js')
+  assert(mappedReadme[0].line === 6)
+  assert(mappedReadme[0].filename === 'example.js')
+  assert(mappedReadme[0].fixedCode === '-fixed-')
+  assert(mappedReadme[0].message === 'message-1')
 })
 
 it('should format line linter error', () => {
@@ -607,13 +609,9 @@ it('should format line linter error', () => {
   assert(line === '5:10:     example.js          message (ruleId)')
 })
 
-it('should convert params fix to boolean', () => {
+it('should trigger fix mode when \'fix\' option is given', () => {
   assert(isFix({ _: ['fix'] }) === true)
   assert(isFix({}) === false)
-})
-
-it('should replace all matched substring with pattern', () => {
-  assert(replaceAll('aaaaa|aa', 'aa', 'b') === 'bba|b')
 })
 
 it('should insert javascript code block', () => {
