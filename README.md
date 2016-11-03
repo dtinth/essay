@@ -546,7 +546,7 @@ export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.m
   errors.map(({ filename, fixedCode }) => {
     const code = codeBlocks[filename].contents.replace(/\n$/g, '')
     if (fixedCode) {
-      readme = readme.replace(new RegExp(insertCodeBlock(code, filename), 'g'), insertCodeBlock(fixedCode, filename))
+      readme = readme.replace(new RegExp(generateCodeBlock(code, filename), 'g'), generateCodeBlock(fixedCode, filename))
     }
   })
   await saveToFile(targetPath, readme)
