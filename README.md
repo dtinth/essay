@@ -524,10 +524,6 @@ export const formatLinterError = (line, filename, output) => (error) => {
   return error
 }
 
-export const printLinterErrors = (errors) => {
-  console.error()
-}
-
 export const isFix = (options) => !!options._ && options._[0] === 'fix'
 
 export const generateCodeBlock = (code, filename) => {
@@ -569,7 +565,7 @@ export async function runLinter (codeBlocks, options) {
     errors = [...errors, ...mapLinterErrorsToLine(results, line, filename)]
   })(codeBlocks)
   if (fix) await fixLinterErrors(errors, codeBlocks)
-  else formatLinterErrorsColumnMode(errors)
+  else console.error(formatLinterErrorsColumnMode(errors))
 }
 
 export default runLinter
