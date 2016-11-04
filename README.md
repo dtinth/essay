@@ -517,7 +517,7 @@ export const formatLinterErrorsColumnMode = (errors) => (
   )).join('\n')
 )
 
-export const formatLinterError = (line, filename, output) => (error) => {
+const formatLinterError = (line, filename, output) => (error) => {
   error.line += line - 1
   error.filename = filename
   error.fixedCode = output
