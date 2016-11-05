@@ -1,0 +1,7 @@
+{
+  "extends": "standard",
+  "globals": {
+    "assert": true,
+    "it": true
+  }
+}

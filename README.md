@@ -379,7 +379,7 @@ export function getBabelConfig () {
   return {
     presets: [
       require('babel-preset-es2015'),
-      require('babel-preset-stage-2'),
+      require('babel-preset-stage-2')
     ],
     plugins: [
       require('babel-plugin-transform-runtime')
@@ -388,6 +388,7 @@ export function getBabelConfig () {
 }
 
 export default getBabelConfig
+
 ```
 
 ### additional options for testing
@@ -493,26 +494,24 @@ export default runUnitTests
 // runLinter.js
 import fs from 'fs'
 import saveToFile from './saveToFile'
-import standard from 'standard'
 import forEachCodeBlock from './forEachCodeBlock'
 import padRight from 'pad-right'
 import flatten from 'lodash/flatten'
+import trimEnd from 'lodash/trimEnd'
+import { CLIEngine } from 'eslint'
 
 export const countLinterErrors = (results) => results[0].messages.length
 
-export const runStandardLinter = (contents, fix) => (
-  new Promise((resolve, reject) => {
-    standard.lintText(contents, { fix }, (err, { results }) => {
-      if (err) reject(err)
-      else resolve(results)
-    })
-  })
-)
+export const runESLint = (contents, fix) => {
+  const cli = new CLIEngine({ fix })
+  const report = cli.executeOnText(contents)
+  return report.results
+}
 
 export const formatLinterErrorsColumnMode = (errors) => (
   errors.map((error) => (
     padRight(error.line + ':' + error.column + ': ', 10, ' ') +
-    padRight(error.filename, 20, ' ') +
+    padRight(error.filename, 30, ' ') +
     error.message + ' ' + '(' + error.ruleId + ')'
   )).join('\n')
 )
@@ -540,9 +539,9 @@ export const generateCodeBlock = (code, filename) => {
 export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.md') => {
   let readme = fs.readFileSync(targetPath, 'utf8')
   errors.map(({ filename, fixedCode }) => {
-    const code = codeBlocks[filename].contents.replace(/\n$/g, '')
+    const code = trimEnd(codeBlocks[filename].contents)
     if (fixedCode) {
-      readme = readme.replace(new RegExp(generateCodeBlock(code, filename), 'g'), generateCodeBlock(fixedCode, filename))
+      readme = readme.split(generateCodeBlock(code, filename)).join(generateCodeBlock(fixedCode, filename))
     }
   })
   await saveToFile(targetPath, readme)
@@ -551,7 +550,9 @@ export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.m
 export const mapLinterErrorsToLine = (results, line, filename) => (
   flatten(
     results.map(({ messages, output }) => (
-      messages.map(formatLinterError(line, filename, output))
+      output
+      ? formatLinterError(line, filename, output)({ line: 1 })
+      : messages.map(formatLinterError(line, filename, output))
     ))
   )
 )
@@ -559,16 +560,17 @@ export const mapLinterErrorsToLine = (results, line, filename) => (
 export async function runLinter (codeBlocks, options) {
   let errors = []
   const fix = isFix(options)
-  await forEachCodeBlock(async ({ contents }, filename, codeBlocks) => {
-    const { line } = codeBlocks[filename]
-    const results = await runStandardLinter(contents, fix)
+  Object.keys(codeBlocks).map(filename => {
+    const { contents, line } = codeBlocks[filename]
+    const results = runESLint(contents, fix)
     errors = [...errors, ...mapLinterErrorsToLine(results, line, filename)]
-  })(codeBlocks)
+  })
   if (fix) await fixLinterErrors(errors, codeBlocks)
   else console.error(formatLinterErrorsColumnMode(errors))
 }
 
 export default runLinter
+
 ```
 
 And its tests
@@ -576,7 +578,7 @@ And its tests
 ```js
 // runLinter.test.js
 import {
-  runStandardLinter,
+  runESLint,
   mapLinterErrorsToLine,
   countLinterErrors,
   formatLinterErrorsColumnMode,
@@ -586,13 +588,15 @@ import {
 
 it('should map linter errors back to line in README.md', () => {
   const linterResults = [
-    { messages: [{ message: 'message-1', line: 2 }], output: '-fixed-' }
-  ];
+    { messages: [{ message: 'message-1', line: 2 }] }
+  ]
   const mappedReadme = mapLinterErrorsToLine(linterResults, 5, 'example.js')
   assert(mappedReadme[0].line === 6)
   assert(mappedReadme[0].filename === 'example.js')
-  assert(mappedReadme[0].fixedCode === '-fixed-')
   assert(mappedReadme[0].message === 'message-1')
+  linterResults[0].output = '-fixed-'
+  const mappedReadme2 = mapLinterErrorsToLine(linterResults, 5, 'example.js')
+  assert(mappedReadme2[0].fixedCode === '-fixed-')
 })
 
 it('should format linter errors on a column mode', () => {
@@ -604,7 +608,7 @@ it('should format linter errors on a column mode', () => {
     ruleId: 'ruleId'
   }]
   const line = formatLinterErrorsColumnMode(errors)
-  assert(line === '5:10:     example.js          message (ruleId)')
+  assert(line === '5:10:     example.js                    message (ruleId)')
 })
 
 it('should trigger fix mode when \'fix\' option is given', () => {
@@ -621,10 +625,10 @@ it('should insert javascript code block', () => {
   ].join('\n'))
 })
 
-it('should lint text with standard linter', async () => {
-  assert(countLinterErrors(await runStandardLinter('1 === 2\n', false)) === 0)
-  assert(countLinterErrors(await runStandardLinter('1 === 2', false)) === 1)
-  assert(countLinterErrors(await runStandardLinter('1 == 2', false)) === 2)
+it('should execute on text by `eslint-cli` and `eslint-config-standard`', () => {
+  assert(countLinterErrors(runESLint('1 === 2\n')) === 0)
+  assert(countLinterErrors(runESLint('1 === 2')) === 1)
+  assert(countLinterErrors(runESLint('1 == 2')) === 2)
 })
 
 ```
@@ -745,8 +749,8 @@ const coverage = {
     },
     fnMap: {
       1: { name: 'x', line: 10, loc: loc(10, 0)(10, 20) },
-      2: { name: 'y', line: 20, loc: loc(20, 0)(20, 15) },
-    },
+      2: { name: 'y', line: 20, loc: loc(20, 0)(20, 15) }
+    }
   },
   '/home/user/essay/src/world.js': {
     path: '/home/user/essay/src/world.js',
@@ -812,6 +816,7 @@ it('should have function map', testReadmeCoverage(({ fnMap }) => {
   assert(fnMap['1.1'].loc.start.line === 81)
   assert(fnMap['1.2'].line === 91)
 }))
+
 ```
 
 
@@ -827,15 +832,16 @@ import * as lintCommand from './cli/lintCommand'
 
 it('works', async () => {
   const example = fs.readFileSync('example.md', 'utf8')
+  const eslintrc = fs.readFileSync('.eslintrc', 'utf8')
   await runInTemporaryDir(async () => {
     fs.writeFileSync('README.md', example.replace('a + b', 'a+b'))
+    fs.writeFileSync('.eslintrc', eslintrc)
     await buildCommand.handler({ })
     assert(fs.existsSync('src/add.js'))
     assert(fs.existsSync('lib/add.js'))
     await testCommand.handler({ })
     assert(fs.existsSync('coverage/lcov.info'))
     await lintCommand.handler({ _: ['fix'] })
-    assert(fs.existsSync('README.md'))
     assert(fs.readFileSync('README.md', 'utf8') !== example)
   })
 })
