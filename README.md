@@ -494,7 +494,7 @@ export default runUnitTests
 // runLinter.js
 import fs from 'fs'
 import saveToFile from './saveToFile'
-import padRight from 'pad-right'
+import padRight from 'lodash/padEnd'
 import flatten from 'lodash/flatten'
 import { CLIEngine } from 'eslint'
 
