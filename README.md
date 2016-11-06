@@ -497,6 +497,7 @@ import saveToFile from './saveToFile'
 import padRight from 'lodash/padEnd'
 import flatten from 'lodash/flatten'
 import { CLIEngine } from 'eslint'
+import Table from 'cli-table'
 
 export const countLinterErrors = (results) => results[0].messages.length
 
@@ -506,13 +507,16 @@ export const runESLint = (contents, fix) => {
   return report.results
 }
 
-export const formatLinterErrorsColumnMode = (errors) => (
-  errors.map((error) => (
-    padRight(error.line + ':' + error.column + ': ', 10, ' ') +
-    padRight(error.filename, 30, ' ') +
-    error.message + ' ' + '(' + error.ruleId + ')'
-  )).join('\n')
-)
+export const formatLinterErrorsColumnMode = (errors, resetStyle = {}) => {
+  const table = new Table({ head: ['Where', 'Path', 'Rule', 'Message'], ...resetStyle })
+  errors.map((error) => table.push([
+    error.line + ':' + error.column,
+    error.filename,
+    error.ruleId,
+    error.message
+  ]))
+  return table.toString()
+}
 
 const formatLinterError = (line, filename, output) => (error) => {
   error.line += line - 1
@@ -601,10 +605,17 @@ it('should format linter errors on a column mode', () => {
     column: 10,
     message: 'message',
     filename: 'example.js',
-    ruleId: 'ruleId'
+    ruleId: 'ruleId-1'
   }]
-  const line = formatLinterErrorsColumnMode(errors)
-  assert(line === '5:10:     example.js                    message (ruleId)')
+  const resetStyle = { style: { head: [], border: [] } }
+  const table = formatLinterErrorsColumnMode(errors, resetStyle)
+  assert(table === [
+    '┌───────┬────────────┬──────────┬─────────┐',
+    '│ Where │ Path       │ Rule     │ Message │',
+    '├───────┼────────────┼──────────┼─────────┤',
+    '│ 5:10  │ example.js │ ruleId-1 │ message │',
+    '└───────┴────────────┴──────────┴─────────┘'
+  ].join('\n'))
 })
 
 it('should trigger fix mode when \'fix\' option is given', () => {
