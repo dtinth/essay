@@ -494,10 +494,8 @@ export default runUnitTests
 // runLinter.js
 import fs from 'fs'
 import saveToFile from './saveToFile'
-import forEachCodeBlock from './forEachCodeBlock'
 import padRight from 'pad-right'
 import flatten from 'lodash/flatten'
-import trimEnd from 'lodash/trimEnd'
 import { CLIEngine } from 'eslint'
 
 export const countLinterErrors = (results) => results[0].messages.length
@@ -531,15 +529,14 @@ export const generateCodeBlock = (code, filename) => {
   return [
     BEGIN,
     '// ' + filename,
-    code,
-    END
+    code + END
   ].join('\n')
 }
 
 export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.md') => {
   let readme = fs.readFileSync(targetPath, 'utf8')
   errors.map(({ filename, fixedCode }) => {
-    const code = trimEnd(codeBlocks[filename].contents)
+    const code = codeBlocks[filename].contents
     if (fixedCode) {
       readme = readme.split(generateCodeBlock(code, filename)).join(generateCodeBlock(fixedCode, filename))
     }
@@ -570,7 +567,6 @@ export async function runLinter (codeBlocks, options) {
 }
 
 export default runLinter
-
 ```
 
 And its tests
@@ -617,7 +613,7 @@ it('should trigger fix mode when \'fix\' option is given', () => {
 })
 
 it('should insert javascript code block', () => {
-  assert(generateCodeBlock('const x = 5', 'example.js') === [
+  assert(generateCodeBlock('const x = 5\n', 'example.js') === [
     '`' + '`' + '`js',
     '// example.js',
     'const x = 5',
@@ -841,8 +837,9 @@ it('works', async () => {
     assert(fs.existsSync('lib/add.js'))
     await testCommand.handler({ })
     assert(fs.existsSync('coverage/lcov.info'))
-    await lintCommand.handler({ _: ['fix'] })
     assert(fs.readFileSync('README.md', 'utf8') !== example)
+    await lintCommand.handler({ _: ['fix'] })
+    assert(fs.readFileSync('README.md', 'utf8') === example)
   })
 })
 
