@@ -497,6 +497,7 @@ import saveToFile from './saveToFile'
 import padRight from 'lodash/padEnd'
 import flatten from 'lodash/flatten'
 import isEmpty from 'lodash/isEmpty'
+import compact from 'lodash/compact'
 import { CLIEngine } from 'eslint'
 import Table from 'cli-table'
 
@@ -520,10 +521,15 @@ export const formatLinterErrorsColumnMode = (errors, resetStyle = {}) => {
   return table.toString()
 }
 
-const formatLinterError = (line, filename, output) => (error) => {
+const formatLinterSolution = (line, filename, output) => ({
+  line,
+  filename,
+  fixedCode: output
+})
+
+const formatLinterError = (line, filename, error) => {
   error.line += line - 1
   error.filename = filename
-  error.fixedCode = output
   return error
 }
 
@@ -551,25 +557,28 @@ export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.m
 }
 
 export const mapLinterErrorsToLine = (results, line, filename) => (
-  flatten(
-    results.map(({ messages, output }) => (
-      output
-      ? formatLinterError(line, filename, output)({ line: 1 })
-      : messages.map(formatLinterError(line, filename, output))
-    ))
-  )
+  results.map(({ messages, output }) => ({
+    solutions: [formatLinterSolution(line, filename, output)],
+    remainingErrors: messages.map((error) => formatLinterError(line, filename, error))
+  })).reduce((prev, cur) => ({
+    solutions: compact([...prev.solutions, ...cur.solutions]),
+    remainingErrors: compact([...prev.remainingErrors, ...cur.remainingErrors])
+  }), { solutions: [], remainingErrors: [] })
 )
 
 export async function runLinter (codeBlocks, options) {
-  let errors = []
+  let remainingErrors = []
+  let solutions = []
   const fix = isFix(options)
   Object.keys(codeBlocks).map(filename => {
     const { contents, line } = codeBlocks[filename]
     const results = runESLint(contents, fix)
-    errors = [...errors, ...mapLinterErrorsToLine(results, line, filename)]
+    const linterResults = mapLinterErrorsToLine(results, line, filename)
+    solutions = [...solutions, ...linterResults.solutions]
+    remainingErrors = [...remainingErrors, ...linterResults.remainingErrors]
   })
-  if (fix) await fixLinterErrors(errors, codeBlocks)
-  else console.error(formatLinterErrorsColumnMode(errors))
+  if (fix) await fixLinterErrors(solutions, codeBlocks)
+  console.error(formatLinterErrorsColumnMode(remainingErrors))
 }
 
 export default runLinter
@@ -590,15 +599,19 @@ import {
 
 it('should map linter errors back to line in README.md', () => {
   const linterResults = [
-    { messages: [{ message: 'message-1', line: 2 }] }
+    { messages: [{ message: 'message-1', line: 2 }], output: 'fixed-code' }
   ]
-  const mappedReadme = mapLinterErrorsToLine(linterResults, 5, 'example.js')
-  assert(mappedReadme[0].line === 6)
-  assert(mappedReadme[0].filename === 'example.js')
-  assert(mappedReadme[0].message === 'message-1')
-  linterResults[0].output = '-fixed-'
-  const mappedReadme2 = mapLinterErrorsToLine(linterResults, 5, 'example.js')
-  assert(mappedReadme2[0].fixedCode === '-fixed-')
+  const { solutions, remainingErrors } = mapLinterErrorsToLine(linterResults, 5, 'example.js')
+  assert.deepEqual(remainingErrors, [{
+    line: 6,
+    filename: 'example.js',
+    message: 'message-1'
+  }])
+  assert.deepEqual(solutions, [{
+    line: 5,
+    filename: 'example.js',
+    fixedCode: 'fixed-code'
+  }])
 })
 
 it('should format linter errors on a column mode', () => {
