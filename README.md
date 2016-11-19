@@ -496,6 +496,7 @@ import fs from 'fs'
 import saveToFile from './saveToFile'
 import padRight from 'lodash/padEnd'
 import flatten from 'lodash/flatten'
+import isEmpty from 'lodash/isEmpty'
 import { CLIEngine } from 'eslint'
 import Table from 'cli-table'
 
@@ -508,6 +509,7 @@ export const runESLint = (contents, fix) => {
 }
 
 export const formatLinterErrorsColumnMode = (errors, resetStyle = {}) => {
+  if (isEmpty(errors)) return ''
   const table = new Table({ head: ['Where', 'Path', 'Rule', 'Message'], ...resetStyle })
   errors.map((error) => table.push([
     error.line + ':' + error.column,
@@ -616,6 +618,8 @@ it('should format linter errors on a column mode', () => {
     '│ 5:10  │ example.js │ ruleId-1 │ message │',
     '└───────┴────────────┴──────────┴─────────┘'
   ].join('\n'))
+  const tableNoErrors = formatLinterErrorsColumnMode([], resetStyle)
+  assert(tableNoErrors === '')
 })
 
 it('should trigger fix mode when \'fix\' option is given', () => {
