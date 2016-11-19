@@ -554,29 +554,30 @@ export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.m
   await saveToFile(targetPath, readme)
 }
 
+const mergeLinterResults = (prev, cur) => ({
+  solutions: compact([...prev.solutions, ...cur.solutions]),
+  remainingErrors: compact([...prev.remainingErrors, ...cur.remainingErrors])
+})
+
+const defaultLinterResults = { solutions: [], remainingErrors: [] }
+
 export const mapLinterErrorsToLine = (results, line, filename) => (
   results.map(({ messages, output }) => ({
     solutions: [formatLinterSolution(line, filename, output)],
     remainingErrors: messages.map((error) => formatLinterError(line, filename, error))
-  })).reduce((prev, cur) => ({
-    solutions: compact([...prev.solutions, ...cur.solutions]),
-    remainingErrors: compact([...prev.remainingErrors, ...cur.remainingErrors])
-  }), { solutions: [], remainingErrors: [] })
+  })).reduce(mergeLinterResults, defaultLinterResults)
 )
 
 export async function runLinter (codeBlocks, options) {
-  let remainingErrors = []
-  let solutions = []
+  let linterResults = defaultLinterResults
   const fix = isFix(options)
   Object.keys(codeBlocks).map(filename => {
     const { contents, line } = codeBlocks[filename]
     const results = runESLint(contents, fix)
-    const linterResults = mapLinterErrorsToLine(results, line, filename)
-    solutions = [...solutions, ...linterResults.solutions]
-    remainingErrors = [...remainingErrors, ...linterResults.remainingErrors]
+    linterResults = mergeLinterResults(linterResults, mapLinterErrorsToLine(results, line, filename))
   })
-  if (fix) await fixLinterErrors(solutions, codeBlocks)
-  console.error(formatLinterErrorsColumnMode(remainingErrors))
+  if (fix) await fixLinterErrors(linterResults.solutions, codeBlocks)
+  console.error(formatLinterErrorsColumnMode(linterResults.remainingErrors))
 }
 
 export default runLinter
