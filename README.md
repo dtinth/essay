@@ -501,8 +501,6 @@ import compact from 'lodash/compact'
 import { CLIEngine } from 'eslint'
 import Table from 'cli-table'
 
-export const countLinterErrors = (results) => results[0].messages.length
-
 export const runESLint = (contents, fix) => {
   const cli = new CLIEngine({ fix, globals: ['describe', 'it', 'should'] })
   const report = cli.executeOnText(contents)
@@ -591,7 +589,6 @@ And its tests
 import {
   runESLint,
   mapLinterErrorsToLine,
-  countLinterErrors,
   formatLinterErrorsColumnMode,
   isFix,
   generateCodeBlock
@@ -647,12 +644,6 @@ it('should insert javascript code block', () => {
     'const x = 5',
     '`' + '`' + '`'
   ].join('\n'))
-})
-
-it('should execute on text by `eslint-cli` and `eslint-config-standard`', () => {
-  assert(countLinterErrors(runESLint('1 === 2\n')) === 0)
-  assert(countLinterErrors(runESLint('1 === 2')) === 1)
-  assert(countLinterErrors(runESLint('1 == 2')) === 2)
 })
 
 ```
