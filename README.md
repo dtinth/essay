@@ -504,7 +504,7 @@ import Table from 'cli-table'
 export const countLinterErrors = (results) => results[0].messages.length
 
 export const runESLint = (contents, fix) => {
-  const cli = new CLIEngine({ fix })
+  const cli = new CLIEngine({ fix, globals: ['describe', 'it', 'should'] })
   const report = cli.executeOnText(contents)
   return report.results
 }
