@@ -509,14 +509,11 @@ import { CLIEngine } from 'eslint'
 import Table from 'cli-table'
 import moduleExists from 'module-exists'
 
-export const runESLint = (contents, fix, hasStandardPlugin) => {
-  const standardExtends = hasStandardPlugin
-  ? { baseConfig: { extends: ['standard'] } }
-  : {}
+export const runESLint = (contents, fix, eslintExtends) => {
   const cli = new CLIEngine({
     fix,
     globals: ['describe', 'it', 'should'],
-    ...standardExtends
+    ...eslintExtends
   })
   const report = cli.executeOnText(contents)
   return report.results
@@ -583,12 +580,19 @@ export const mapLinterErrorsToLine = (results, line, filename) => (
   })).reduce(mergeLinterResults, defaultLinterResults)
 )
 
+export const getESLintExtends = (hasStandardPlugin) => (
+  hasStandardPlugin
+  ? { baseConfig: { extends: ['standard'] } }
+  : {}
+)
+
 export async function runLinter (codeBlocks, options, hasESLintModule) {
   let linterResults = defaultLinterResults
   const fix = isFix(options)
   Object.keys(codeBlocks).map(filename => {
     const { contents, line } = codeBlocks[filename]
-    const results = runESLint(contents, fix, moduleExists('eslint-plugin-standard'))
+    const eslintExtends = getESLintExtends(moduleExists('eslint-plugin-standard'))
+    const results = runESLint(contents, fix, eslintExtends)
     linterResults = mergeLinterResults(linterResults, mapLinterErrorsToLine(results, line, filename))
   })
   if (fix) await fixLinterErrors(linterResults.solutions, codeBlocks)
@@ -607,7 +611,8 @@ import {
   mapLinterErrorsToLine,
   formatLinterErrorsColumnMode,
   isFix,
-  generateCodeBlock
+  generateCodeBlock,
+  getESLintExtends
 } from './runLinter'
 
 it('should map linter errors back to line in README.md', () => {
@@ -660,6 +665,11 @@ it('should insert javascript code block', () => {
     'const x = 5',
     '`' + '`' + '`'
   ].join('\n'))
+})
+
+it('should get correct base config', () => {
+  assert(getESLintExtends(false), {})
+  assert(getESLintExtends(true).baseConfig.extends, 'standard')
 })
 
 ```
