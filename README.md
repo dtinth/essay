@@ -209,15 +209,22 @@ export const command = 'lint'
 export const description = 'Runs the linter.'
 export const builder = (yargs) => yargs
 export const handler = async (argv) => {
-  const hasESLintModule = moduleExists('eslint')
-  if (hasESLintModule) {
+  if (allowToUseESLint(moduleExists('eslint'))) {
     const codeBlocks = await obtainCodeBlocks()
-    await runLinter(codeBlocks, argv, hasESLintModule)
-  } else {
-    console.log('Please install eslint')
-    process.exit(0)
+    await runLinter(codeBlocks, argv)
   }
 }
+export const allowToUseESLint = (hasESLintModule) => {
+  if (hasESLintModule) return true
+  console.log('Please install eslint')
+  process.exitCode = 1
+}
+export const cancelProcessExit = (callback) => (
+  process.on('exit', (code) => {
+    callback(code)
+    delete process.exitCode
+  })
+)
 ```
 
 
@@ -586,7 +593,7 @@ export const getESLintExtends = (hasStandardPlugin) => (
   : {}
 )
 
-export async function runLinter (codeBlocks, options, hasESLintModule) {
+export async function runLinter (codeBlocks, options) {
   let linterResults = defaultLinterResults
   const fix = isFix(options)
   Object.keys(codeBlocks).map(filename => {
@@ -885,6 +892,8 @@ it('works', async () => {
     assert(fs.readFileSync('README.md', 'utf8') !== example)
     await lintCommand.handler({ _: ['fix'] })
     assert(fs.readFileSync('README.md', 'utf8') === example)
+    lintCommand.cancelProcessExit((code) => assert(code === 1))
+    lintCommand.allowToUseESLint(false)
   })
 })
 
