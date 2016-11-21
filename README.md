@@ -219,12 +219,6 @@ export const allowToUseESLint = (hasESLintModule) => {
   console.log('Please install eslint')
   process.exitCode = 1
 }
-export const cancelProcessExit = (callback) => (
-  process.on('exit', (code) => {
-    callback(code)
-    delete process.exitCode
-  })
-)
 ```
 
 
@@ -878,6 +872,12 @@ import * as buildCommand from './cli/buildCommand'
 import * as testCommand from './cli/testCommand'
 import * as lintCommand from './cli/lintCommand'
 
+const assertProcessExitCode = (expectedCode) => (
+  process.on('exit', (code) => {
+    assert(code === expectedCode)
+    delete process.exitCode
+  })
+)
 it('works', async () => {
   const example = fs.readFileSync('example.md', 'utf8')
   const eslintrc = fs.readFileSync('.eslintrc', 'utf8')
@@ -892,7 +892,7 @@ it('works', async () => {
     assert(fs.readFileSync('README.md', 'utf8') !== example)
     await lintCommand.handler({ _: ['fix'] })
     assert(fs.readFileSync('README.md', 'utf8') === example)
-    lintCommand.cancelProcessExit((code) => assert(code === 1))
+    assertProcessExitCode(1)
     lintCommand.allowToUseESLint(false)
   })
 })
