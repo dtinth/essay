@@ -203,13 +203,20 @@ export const handler = async (argv) => {
 // cli/lintCommand.js
 import obtainCodeBlocks from '../obtainCodeBlocks'
 import runLinter from '../runLinter'
+import moduleExists from 'module-exists'
 
 export const command = 'lint'
 export const description = 'Runs the linter.'
 export const builder = (yargs) => yargs
 export const handler = async (argv) => {
-  const codeBlocks = await obtainCodeBlocks()
-  await runLinter(codeBlocks, argv)
+  const hasESLintModule = moduleExists('eslint')
+  if (hasESLintModule) {
+    const codeBlocks = await obtainCodeBlocks()
+    await runLinter(codeBlocks, argv, hasESLintModule)
+  } else {
+    console.log('Please install eslint')
+    process.exit(0)
+  }
 }
 ```
 
@@ -500,9 +507,17 @@ import isEmpty from 'lodash/isEmpty'
 import compact from 'lodash/compact'
 import { CLIEngine } from 'eslint'
 import Table from 'cli-table'
+import moduleExists from 'module-exists'
 
-export const runESLint = (contents, fix) => {
-  const cli = new CLIEngine({ fix, globals: ['describe', 'it', 'should'] })
+export const runESLint = (contents, fix, hasStandardPlugin) => {
+  const standardExtends = hasStandardPlugin
+  ? { baseConfig: { extends: ['standard'] } }
+  : {}
+  const cli = new CLIEngine({
+    fix,
+    globals: ['describe', 'it', 'should'],
+    ...standardExtends
+  })
   const report = cli.executeOnText(contents)
   return report.results
 }
@@ -568,12 +583,12 @@ export const mapLinterErrorsToLine = (results, line, filename) => (
   })).reduce(mergeLinterResults, defaultLinterResults)
 )
 
-export async function runLinter (codeBlocks, options) {
+export async function runLinter (codeBlocks, options, hasESLintModule) {
   let linterResults = defaultLinterResults
   const fix = isFix(options)
   Object.keys(codeBlocks).map(filename => {
     const { contents, line } = codeBlocks[filename]
-    const results = runESLint(contents, fix)
+    const results = runESLint(contents, fix, moduleExists('eslint-plugin-standard'))
     linterResults = mergeLinterResults(linterResults, mapLinterErrorsToLine(results, line, filename))
   })
   if (fix) await fixLinterErrors(linterResults.solutions, codeBlocks)
