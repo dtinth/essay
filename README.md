@@ -386,7 +386,7 @@ export default transpileCodeBlock
 export function getBabelConfig () {
   return {
     presets: [
-      require('babel-preset-es2015'),
+      require('babel-preset-latest'),
       require('babel-preset-stage-2')
     ],
     plugins: [
@@ -410,7 +410,7 @@ export function getTestingBabelConfig () {
   return {
     ...babelConfig,
     plugins: [
-      require('babel-plugin-__coverage__'),
+      require('babel-plugin-istanbul'),
       require('babel-plugin-espower'),
       ...babelConfig.plugins
     ]
