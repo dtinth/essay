@@ -249,7 +249,10 @@ export default obtainCodeBlocks
 
 It extracts a fenced code block that looks like this:
 
-<pre><code>```js<br>// filename.js<br>export default 42<br>```</code></pre>
+<pre><code>```js<br>
+// filename.js<br>
+export default 42<br>
+```</code></pre>
 
 Once extracted, each code block will have its associated file name, contents,
 and the line number.
