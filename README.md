@@ -404,14 +404,19 @@ export default getBabelConfig
 ```js
 // getTestingBabelConfig.js
 import getBabelConfig from './getBabelConfig'
+import babelPluginIstanbul from 'babel-plugin-istanbul'
+import babelPresetPowerAssert from 'babel-preset-power-assert'
 
 export function getTestingBabelConfig () {
   const babelConfig = getBabelConfig()
   return {
     ...babelConfig,
+    presets: [
+      babelPresetPowerAssert,
+      ...babelConfig.presets
+    ],
     plugins: [
-      require('babel-plugin-istanbul'),
-      require('babel-plugin-espower'),
+      babelPluginIstanbul,
       ...babelConfig.plugins
     ]
   }
