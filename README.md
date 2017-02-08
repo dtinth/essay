@@ -58,6 +58,10 @@ it('should add two numbers', () => {
 
 ### getting started
 
+The easiest way to get started is to use [__initialize-essay__](https://github.com/dtinth/initialize-essay).
+
+<details><summary><strong>Manual setup steps</strong></summary>
+
 1. Make sure you already have your README.md file in place and already initialized your npm package (e.g. using `npm init`).
 
 2. Install `essay` as your dev dependency.
@@ -97,7 +101,7 @@ it('should add two numbers', () => {
     ```json
     "main": "lib/index.js",
     ```
-
+</details>
 
 ### building
 
