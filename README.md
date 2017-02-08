@@ -197,6 +197,30 @@ export const handler = async (argv) => {
 }
 ```
 
+### `essay lint`
+
+```js
+// cli/lintCommand.js
+import obtainCodeBlocks from '../obtainCodeBlocks'
+import runLinter from '../runLinter'
+import moduleExists from 'module-exists'
+
+export const command = 'lint'
+export const description = 'Runs the linter.'
+export const builder = (yargs) => yargs
+export const handler = async (argv) => {
+  if (allowToUseESLint(moduleExists('eslint'))) {
+    const codeBlocks = await obtainCodeBlocks()
+    await runLinter(codeBlocks, argv)
+  }
+}
+export const allowToUseESLint = (hasESLintModule) => {
+  if (hasESLintModule) return true
+  console.log('Please install eslint')
+  process.exitCode = 1
+}
+```
+
 
 ## obtaining code blocks
 
@@ -363,7 +387,7 @@ export function getBabelConfig () {
   return {
     presets: [
       require('babel-preset-es2015'),
-      require('babel-preset-stage-2'),
+      require('babel-preset-stage-2')
     ],
     plugins: [
       require('babel-plugin-transform-runtime')
@@ -372,6 +396,7 @@ export function getBabelConfig () {
 }
 
 export default getBabelConfig
+
 ```
 
 ### additional options for testing
@@ -394,7 +419,6 @@ export function getTestingBabelConfig () {
 
 export default getTestingBabelConfig
 ```
-
 
 
 ## running unit tests
@@ -471,6 +495,186 @@ async function saveCoverageData (codeBlocks) {
 
 export default runUnitTests
 ```
+
+
+## running linter
+```js
+// runLinter.js
+import fs from 'fs'
+import saveToFile from './saveToFile'
+import padRight from 'lodash/padEnd'
+import flatten from 'lodash/flatten'
+import isEmpty from 'lodash/isEmpty'
+import compact from 'lodash/compact'
+import { CLIEngine } from 'eslint'
+import Table from 'cli-table'
+import moduleExists from 'module-exists'
+
+export const runESLint = (contents, fix, eslintExtends) => {
+  const cli = new CLIEngine({
+    fix,
+    globals: ['describe', 'it', 'should'],
+    ...eslintExtends
+  })
+  const report = cli.executeOnText(contents)
+  return report.results
+}
+
+export const formatLinterErrorsColumnMode = (errors, resetStyle = {}) => {
+  if (isEmpty(errors)) return ''
+  const table = new Table({ head: ['Where', 'Path', 'Rule', 'Message'], ...resetStyle })
+  errors.map((error) => table.push([
+    error.line + ':' + error.column,
+    error.filename,
+    error.ruleId,
+    error.message
+  ]))
+  return table.toString()
+}
+
+const formatLinterSolution = (line, filename, output) => ({
+  line,
+  filename,
+  fixedCode: output
+})
+
+const formatLinterError = (line, filename, error) => {
+  error.line += line - 1
+  error.filename = filename
+  return error
+}
+
+export const isFix = (options) => !!options._ && options._[0] === 'fix'
+
+export const generateCodeBlock = (code, filename) => {
+  const END = '`' + '`' + '`'
+  const BEGIN = END + 'js'
+  return [
+    BEGIN,
+    '// ' + filename,
+    code + END
+  ].join('\n')
+}
+
+export const fixLinterErrors = async (errors, codeBlocks, targetPath = 'README.md') => {
+  let readme = fs.readFileSync(targetPath, 'utf8')
+  errors.map(({ filename, fixedCode }) => {
+    const code = codeBlocks[filename].contents
+    if (fixedCode) {
+      readme = readme.split(generateCodeBlock(code, filename)).join(generateCodeBlock(fixedCode, filename))
+    }
+  })
+  await saveToFile(targetPath, readme)
+}
+
+const mergeLinterResults = (prev, cur) => ({
+  solutions: compact([...prev.solutions, ...cur.solutions]),
+  remainingErrors: compact([...prev.remainingErrors, ...cur.remainingErrors])
+})
+
+const defaultLinterResults = { solutions: [], remainingErrors: [] }
+
+export const mapLinterErrorsToLine = (results, line, filename) => (
+  results.map(({ messages, output }) => ({
+    solutions: [formatLinterSolution(line, filename, output)],
+    remainingErrors: messages.map((error) => formatLinterError(line, filename, error))
+  })).reduce(mergeLinterResults, defaultLinterResults)
+)
+
+export const getESLintExtends = (hasStandardPlugin) => (
+  hasStandardPlugin
+  ? { baseConfig: { extends: ['standard'] } }
+  : {}
+)
+
+export async function runLinter (codeBlocks, options) {
+  let linterResults = defaultLinterResults
+  const fix = isFix(options)
+  Object.keys(codeBlocks).map(filename => {
+    const { contents, line } = codeBlocks[filename]
+    const eslintExtends = getESLintExtends(moduleExists('eslint-plugin-standard'))
+    const results = runESLint(contents, fix, eslintExtends)
+    linterResults = mergeLinterResults(linterResults, mapLinterErrorsToLine(results, line, filename))
+  })
+  if (fix) await fixLinterErrors(linterResults.solutions, codeBlocks)
+  console.error(formatLinterErrorsColumnMode(linterResults.remainingErrors))
+}
+
+export default runLinter
+```
+
+And its tests
+
+```js
+// runLinter.test.js
+import {
+  runESLint,
+  mapLinterErrorsToLine,
+  formatLinterErrorsColumnMode,
+  isFix,
+  generateCodeBlock,
+  getESLintExtends
+} from './runLinter'
+
+it('should map linter errors back to line in README.md', () => {
+  const linterResults = [
+    { messages: [{ message: 'message-1', line: 2 }], output: 'fixed-code' }
+  ]
+  const { solutions, remainingErrors } = mapLinterErrorsToLine(linterResults, 5, 'example.js')
+  assert.deepEqual(remainingErrors, [{
+    line: 6,
+    filename: 'example.js',
+    message: 'message-1'
+  }])
+  assert.deepEqual(solutions, [{
+    line: 5,
+    filename: 'example.js',
+    fixedCode: 'fixed-code'
+  }])
+})
+
+it('should format linter errors on a column mode', () => {
+  const errors = [{
+    line: 5,
+    column: 10,
+    message: 'message',
+    filename: 'example.js',
+    ruleId: 'ruleId-1'
+  }]
+  const resetStyle = { style: { head: [], border: [] } }
+  const table = formatLinterErrorsColumnMode(errors, resetStyle)
+  assert(table === [
+    '┌───────┬────────────┬──────────┬─────────┐',
+    '│ Where │ Path       │ Rule     │ Message │',
+    '├───────┼────────────┼──────────┼─────────┤',
+    '│ 5:10  │ example.js │ ruleId-1 │ message │',
+    '└───────┴────────────┴──────────┴─────────┘'
+  ].join('\n'))
+  const tableNoErrors = formatLinterErrorsColumnMode([], resetStyle)
+  assert(tableNoErrors === '')
+})
+
+it('should trigger fix mode when \'fix\' option is given', () => {
+  assert(isFix({ _: ['fix'] }) === true)
+  assert(isFix({}) === false)
+})
+
+it('should insert javascript code block', () => {
+  assert(generateCodeBlock('const x = 5\n', 'example.js') === [
+    '`' + '`' + '`js',
+    '// example.js',
+    'const x = 5',
+    '`' + '`' + '`'
+  ].join('\n'))
+})
+
+it('should get correct base config', () => {
+  assert(getESLintExtends(false), {})
+  assert(getESLintExtends(true).baseConfig.extends, 'standard')
+})
+
+```
+
 
 ### the coverage magic
 
@@ -587,8 +791,8 @@ const coverage = {
     },
     fnMap: {
       1: { name: 'x', line: 10, loc: loc(10, 0)(10, 20) },
-      2: { name: 'y', line: 20, loc: loc(20, 0)(20, 15) },
-    },
+      2: { name: 'y', line: 20, loc: loc(20, 0)(20, 15) }
+    }
   },
   '/home/user/essay/src/world.js': {
     path: '/home/user/essay/src/world.js',
@@ -654,6 +858,7 @@ it('should have function map', testReadmeCoverage(({ fnMap }) => {
   assert(fnMap['1.1'].loc.start.line === 81)
   assert(fnMap['1.2'].line === 91)
 }))
+
 ```
 
 
@@ -665,16 +870,30 @@ import mkdirp from 'mkdirp'
 import fs from 'fs'
 import * as buildCommand from './cli/buildCommand'
 import * as testCommand from './cli/testCommand'
+import * as lintCommand from './cli/lintCommand'
 
+const assertProcessExitCode = (expectedCode) => (
+  process.on('exit', (code) => {
+    assert(code === expectedCode)
+    delete process.exitCode
+  })
+)
 it('works', async () => {
   const example = fs.readFileSync('example.md', 'utf8')
+  const eslintrc = fs.readFileSync('.eslintrc', 'utf8')
   await runInTemporaryDir(async () => {
-    fs.writeFileSync('README.md', example)
+    fs.writeFileSync('README.md', example.replace('a + b', 'a+b'))
+    fs.writeFileSync('.eslintrc', eslintrc)
     await buildCommand.handler({ })
     assert(fs.existsSync('src/add.js'))
     assert(fs.existsSync('lib/add.js'))
     await testCommand.handler({ })
     assert(fs.existsSync('coverage/lcov.info'))
+    assert(fs.readFileSync('README.md', 'utf8') !== example)
+    await lintCommand.handler({ _: ['fix'] })
+    assert(fs.readFileSync('README.md', 'utf8') === example)
+    assertProcessExitCode(1)
+    lintCommand.allowToUseESLint(false)
   })
 })
 
@@ -700,10 +919,11 @@ async function runInTemporaryDir (f) {
 // cli/index.js
 import * as buildCommand from './buildCommand'
 import * as testCommand from './testCommand'
+import * as lintCommand from './lintCommand'
 
 export function main () {
   // XXX: Work around yargs’ lack of default command support.
-  const commands = [ buildCommand, testCommand ]
+  const commands = [ buildCommand, testCommand, lintCommand ]
   const yargs = commands.reduce(appendCommandToYargs, require('yargs')).help()
   const registry = commands.reduce(registerCommandToRegistry, { })
   const argv = yargs.argv
