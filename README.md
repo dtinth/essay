@@ -228,7 +228,7 @@ export const allowToUseESLint = (hasESLintModule) => {
 
 ## obtaining code blocks
 
-This IO function reads your README.md and extracts the fenced code blocks.
+essay extracts the fenced code blocks from your README.md file:
 
 ```js
 // obtainCodeBlocks.js
@@ -247,9 +247,12 @@ export default obtainCodeBlocks
 
 ### code block extraction
 
-This function takes a string (representing your README.md) and extracts the fenced code block. Returns an object of code block entries, which contains the contents and line number in README.md.
+It extracts a fenced code block that looks like this:
 
-See the test (below) for more details:
+<pre><code>```js<br>// filename.js<br>export default 42<br>```</code></pre>
+
+Once extracted, each code block will have its associated file name, contents,
+and the line number.
 
 ```js
 // extractCodeBlocks.js
@@ -270,7 +273,7 @@ export function extractCodeBlocks (data) {
 export default extractCodeBlocks
 ```
 
-Here’s the test for this function:
+Test:
 
 ```js
 // extractCodeBlocks.test.js
@@ -318,6 +321,8 @@ it('should contain line numbers', () => {
 
 ## dumping code blocks to source files
 
+Extracted code blocks are first dumped into `src` directory.
+
 ```js
 // dumpSourceCodeBlocks.js
 import forEachCodeBlock from './forEachCodeBlock'
@@ -333,7 +338,9 @@ export default dumpSourceCodeBlocks
 ```
 
 
-## transpilation using Babel
+## transpilation
+
+We transpile each code block using Babel.
 
 ```js
 // transpileCodeBlocks.js
@@ -351,8 +358,8 @@ export default transpileCodeBlocks
 ### transpiling an individual code block
 
 To speed up transpilation,
-we’ll skip the transpilation process if the source file has not been modified
-since the corresponding transpiled file has been generated (similar to make).
+we’ll skip running Babel if the source file has not been modified since the
+corresponding transpiled file has been generated (similar to make).
 
 ```js
 // transpileCodeBlock.js
@@ -403,7 +410,7 @@ export default getBabelConfig
 
 ```
 
-### additional options for testing
+### additional Babel options for testing
 
 ```js
 // getTestingBabelConfig.js
