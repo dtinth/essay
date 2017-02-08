@@ -15,11 +15,11 @@ __Generate your JavaScript library out of an essay!__
 
 - __Write code in your README.md file__ in fenced code blocks, with a comment indicating the file’s name.
 
-- __Write code using ES2015 syntax__. `essay` will use [Babel](https://babeljs.io/) to transpile them to ES5.
+- __Write code using ES2016 syntax__. `essay` will use [Babel](https://babeljs.io/) to transpile them to ES5.
 
 - __Test your code__ using [Mocha](https://mochajs.org/) and [power-assert](https://github.com/power-assert-js/power-assert).
 
-- __Measures your code coverage__. `essay` generates [code coverage report for your README.md file][codecov] using [Istanbul](https://github.com/gotwarlost/istanbul) and [babel-plugin-\_\_coverage\_\_](https://github.com/dtinth/babel-plugin-__coverage__).
+- __Measures your code coverage__. `essay` generates [code coverage report for your README.md file][codecov] using [Istanbul](https://github.com/gotwarlost/istanbul) and [babel-plugin-\_\_coverage\_\_](https://github.com/istanbuljs/babel-plugin-istanbul).
 
 - __Examples__ of JavaScript libraries/articles written using `essay`:
 
@@ -57,6 +57,10 @@ it('should add two numbers', () => {
 
 
 ### getting started
+
+The easiest way to get started is to use [__initialize-essay__](https://github.com/dtinth/initialize-essay).
+
+<details><summary><strong>Manual setup steps</strong></summary>
 
 1. Make sure you already have your README.md file in place and already initialized your npm package (e.g. using `npm init`).
 
@@ -97,7 +101,7 @@ it('should add two numbers', () => {
     ```json
     "main": "lib/index.js",
     ```
-
+</details>
 
 ### building
 
@@ -386,7 +390,7 @@ export default transpileCodeBlock
 export function getBabelConfig () {
   return {
     presets: [
-      require('babel-preset-es2015'),
+      require('babel-preset-latest'),
       require('babel-preset-stage-2')
     ],
     plugins: [
@@ -404,14 +408,19 @@ export default getBabelConfig
 ```js
 // getTestingBabelConfig.js
 import getBabelConfig from './getBabelConfig'
+import babelPluginIstanbul from 'babel-plugin-istanbul'
+import babelPresetPowerAssert from 'babel-preset-power-assert'
 
 export function getTestingBabelConfig () {
   const babelConfig = getBabelConfig()
   return {
     ...babelConfig,
+    presets: [
+      babelPresetPowerAssert,
+      ...babelConfig.presets
+    ],
     plugins: [
-      require('babel-plugin-__coverage__'),
-      require('babel-plugin-espower'),
+      babelPluginIstanbul,
       ...babelConfig.plugins
     ]
   }
