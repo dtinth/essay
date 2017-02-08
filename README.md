@@ -15,11 +15,11 @@ __Generate your JavaScript library out of an essay!__
 
 - __Write code in your README.md file__ in fenced code blocks, with a comment indicating the file’s name.
 
-- __Write code using ES2015 syntax__. `essay` will use [Babel](https://babeljs.io/) to transpile them to ES5.
+- __Write code using ES2016 syntax__. `essay` will use [Babel](https://babeljs.io/) to transpile them to ES5.
 
 - __Test your code__ using [Mocha](https://mochajs.org/) and [power-assert](https://github.com/power-assert-js/power-assert).
 
-- __Measures your code coverage__. `essay` generates [code coverage report for your README.md file][codecov] using [Istanbul](https://github.com/gotwarlost/istanbul) and [babel-plugin-\_\_coverage\_\_](https://github.com/dtinth/babel-plugin-__coverage__).
+- __Measures your code coverage__. `essay` generates [code coverage report for your README.md file][codecov] using [Istanbul](https://github.com/gotwarlost/istanbul) and [babel-plugin-\_\_coverage\_\_](https://github.com/istanbuljs/babel-plugin-istanbul).
 
 - __Examples__ of JavaScript libraries/articles written using `essay`:
 
